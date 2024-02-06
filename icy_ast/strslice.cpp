@@ -46,7 +46,7 @@ struct StrSlice
 	StrSlice();
 	StrSlice(const char* _cstr);
 	StrSlice(char* _str);
-	char operator[](uint _idx);
+	char &operator[](uint _idx);
 };
 
 StrSlice::StrSlice()
@@ -69,7 +69,7 @@ StrSlice::StrSlice(char* _str)//[]
 		len = n;
 	}
 
-char StrSlice::operator[](uint _idx)//[?]
+char &StrSlice::operator[](uint _idx)//[?]
 {
 	if(_idx >= len)
 		throw "Error:strslice out of range"; //暂先throw这个吧
@@ -188,4 +188,25 @@ char pair_sign(char _c)
 		default:
 			throw "Exception from function pair_sign";
 	}
+}
+
+
+
+StrSlice fetch_name(StrSlice &_slice)
+{
+	StrSlice name;//默认地，name的指针为空，长度为0
+	uint i;
+	for(i=0; i<_slice.len; i++)
+		if(_slice[i] == '_' || is_letter(_slice[i]))
+			break;
+	if(i == _slice.len)//如果遍历到末尾还没有找到符合要求的段落，就返回空的片段
+		return name;
+	name.ptr = &_slice[i];
+	uint begin {i};
+	i++;
+	while(is_letter(_slice[i]) || is_number(_slice[i]))//遍历完一整个name
+		i++;
+	name.len = i - begin;
+	return name;
+
 }

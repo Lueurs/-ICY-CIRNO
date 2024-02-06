@@ -1,2 +1,2 @@
 # -ICY-CIRNO
-Baka programing language(x
+Baka programing language XD

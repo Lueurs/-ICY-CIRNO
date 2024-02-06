@@ -28,7 +28,7 @@ using icyFuncParamStruct = std::vector<icyObject>; //icyFunction 对象中保存
 class IcyFunction
 {
 	icyFuncParamStruct m_param_table;
-	icyObject          ret_value;
+	icyObject          m_ret_value;
 
 };
 class IcyThread
@@ -39,3 +39,8 @@ class IcyProcess
 {
 
 };
+
+
+IcyFunction icy_make_function(StrSlice &_slice);
+
+IcyObject icy_execute_ast();

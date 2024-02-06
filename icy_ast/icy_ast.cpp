@@ -2,7 +2,7 @@
 #include"strslice.hpp"
 #include"error.hpp"
 
-namespace Cirno{
+using namespace Cirno;
 
     enum icy_nodetype_t:ushort
 	{
@@ -64,7 +64,7 @@ namespace Cirno{
 		StrSlice current_token;
 		if(_slice[0] == '[')	//[]会生成一个array(大概，也可能是别的什么数据结构，比如说rbt)
 		{
-			int level{1};
+			int level{0};
 			for(uint i=0; i < _slice.len; i++)
 			{
 				if(_slice[i] == '[')
@@ -77,10 +77,17 @@ namespace Cirno{
 				}
 			}
 			if(level != 0)
-				throw_exception("Error:unpaired square bracket\n");
+				throw_exception("Exception from function icy_fetch_current_token:unpaired square bracket\n");
 			current_token.ptr = "[]";
 			current_token.len = 2;
 		}
+		else if(_slice[0] == '(')
+		{
+			char* end = find_pair_sign(_slice.ptr,_slice.len);
+			current_token.ptr = _slice.ptr;
+			current_token.len = end - _slice.ptr;
+		}
+		return current_token;
 
 	}
 
@@ -126,4 +133,4 @@ namespace Cirno{
 		else
 			return 0;
 	}
-}
+

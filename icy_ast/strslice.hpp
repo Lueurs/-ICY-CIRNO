@@ -1,5 +1,6 @@
 #pragma once
 
+
 //所有打上问号的函数都是未经测试验证的，打上!的是发现有问题的
 
 using uint = unsigned int;
@@ -57,10 +58,9 @@ bool icy_naming_check(StrSlice &_slice);    //p[?]检测一个切片是否符合
 
 char* jump_space(char* _in);	//p[?]从当前字符起向后，跳过第一段空格，返回这一段空格后的第一个字符的指针
 
-char pair_sign(char _c);		//p[?]为字符配对。传入'('则返回')',传入'['则返回']'...
+char get_pair_sign(char _c);		//p[?]为字符配对。传入'('则返回')',传入'['则返回']'...
 
-//char* find_pair_sign(char _sign)	//找到该字符配对的另一个字符的位置
+char* find_pair_sign(char* _begin,int _range = -1);	//[?]找到该字符配对的另一个字符的位置
 
-//bool is_operator(StrSlice &_slice);
 
 StrSlice fetch_name(StrSlice &_slice);	//	[?]找到第一个符合命名规范的片段,如在"var a = 12"中提取出"var"

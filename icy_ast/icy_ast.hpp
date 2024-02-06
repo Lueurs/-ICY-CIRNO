@@ -7,16 +7,34 @@ using uint   = unsigned int;
 
 namespace Cirno{
 
+	enum icy_nodetype_t:ushort
+	{
+		OBJECT,
+		CONST_OBJECT,
+
+
+		MOV,
+
+		CALL,
+
+		ADD,
+		MINUS,
+		MUL,
+		DIV,
+		POW,
+
+
+	};
 
 	struct icyAstNode
 	{
 		std::vector<icyAstNode*>  sub_nodes; // 这里储存了子节点的指针，默认两个子节点。
-		ict_nodetype_t            node_type;		//该节点的类型
+		icy_nodetype_t            node_type;		//该节点的类型
 		uint                      source;			//该节点的资源编号
 
 	};
 
-	StrSlice icy_fetch_current_token();	//[?]读取（或者说标记）当前完整的一个操作符或操作数
+	StrSlice icy_fetch_current_token(StrSlice &_slice);	//[?]读取（或者说标记）当前完整的一个操作符或操作数
 
 	StrSlice icy_find_minlevel_token(StrSlice);	//[?]找到该片段中优先级最低的操作符
 

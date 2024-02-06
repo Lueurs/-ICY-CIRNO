@@ -1,4 +1,7 @@
 
+#include"error.hpp"
+//#define DEBUG 114514
+
 using uint   = unsigned int;
 using ushort = unsigned short;
 
@@ -176,7 +179,7 @@ char* jump_space(char* _pos)
 	return _pos;
 }
 
-char pair_sign(char _c)
+char get_pair_sign(char _c)
 {
 	switch(_c)
 	{
@@ -190,7 +193,54 @@ char pair_sign(char _c)
 	}
 }
 
+char* find_pair_sign(char *_begin,int _range = -1)
+{
+	char pair_prev = *_begin;
+	char pair_post = get_pair_sign(pair_prev);
 
+	int level{0};
+	if(_range < 0)//_range小于零表示不设置搜找长度限制，一直搜索到字符串末尾为止
+	{
+		while(*_begin)
+		{
+			if(*_begin == pair_prev)
+				level++;
+			else if(*_begin == pair_post)
+			{
+				level--;
+				if(level == 0)
+					break;
+			}
+#ifdef DEBUG
+			error_log << "scanned character:" <<*_begin << ",level = " << level << '\n';
+#endif
+			_begin++;
+		}
+	}
+	else//否则按照指定的长度范围搜索配对符号
+	{
+		for(uint i=0; i<_range && *_begin; i++)
+		{
+			if(*_begin == pair_prev)
+				level++;
+			else if(*_begin == pair_post)
+			{
+				level--;
+				if(level == 0)
+					break;
+			}
+#ifdef DEBUG
+			error_log << "scanned character:" <<*_begin << ",level = " << level << '\n';
+#endif
+			_begin++;
+		}
+	}
+	if(level != 0)
+		throw_exception("Exception from function find_pair_sign:unpaired bracket");//如果level不等于零说明代码中的括号没有匹配完整，抛出错误。
+	error_log.close();
+	return _begin;
+
+}
 
 StrSlice fetch_name(StrSlice &_slice)
 {

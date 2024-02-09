@@ -1,6 +1,10 @@
 
-#include"error.hpp"
-//#define DEBUG 114514
+#include"debug.hpp"
+#define DEBUG 114514
+
+#ifdef DEBUG
+#include<iostream>
+#endif
 
 using uint   = unsigned int;
 using ushort = unsigned short;
@@ -75,7 +79,7 @@ StrSlice::StrSlice(char* _str)//[]
 char &StrSlice::operator[](uint _idx)//[?]
 {
 	if(_idx >= len)
-		throw "Error:strslice out of range"; //暂先throw这个吧
+		throw "Error:strslice out of range\n"; //暂先throw这个吧
 	else
 		return ptr[_idx];
 
@@ -179,6 +183,20 @@ char* jump_space(char* _pos)
 	return _pos;
 }
 
+char *find_first_char(StrSlice& _slice,char _ch)
+{
+	char *result{nullptr};
+	uint i;
+	for(i=0; i < _slice.len; i++)
+	{
+		if(_slice[i] == _ch)
+			break;
+	}
+	if(i != _slice.len)
+		result = _slice.ptr + i;
+	return result;
+}
+
 char get_pair_sign(char _c)
 {
 	switch(_c)
@@ -212,7 +230,7 @@ char* find_pair_sign(char *_begin,int _range = -1)
 					break;
 			}
 #ifdef DEBUG
-			error_log << "scanned character:" <<*_begin << ",level = " << level << '\n';
+			log << "scanned character:" <<*_begin << ",level = " << level << '\n';
 #endif
 			_begin++;
 		}
@@ -230,33 +248,48 @@ char* find_pair_sign(char *_begin,int _range = -1)
 					break;
 			}
 #ifdef DEBUG
-			error_log << "scanned character:" <<*_begin << ",level = " << level << '\n';
+			log << "scanned character:" <<*_begin << ",level = " << level << '\n';
 #endif
 			_begin++;
 		}
 	}
 	if(level != 0)
 		throw_exception("Exception from function find_pair_sign:unpaired bracket");//如果level不等于零说明代码中的括号没有匹配完整，抛出错误。
-	error_log.close();
+#ifdef DEBUG
+	//log.close();
+#endif
 	return _begin;
 
 }
 
-StrSlice fetch_name(StrSlice &_slice)
+StrSlice fetch_name(StrSlice &_slice)//找到StrSlice中符合命名规范的第一个片段
 {
+#ifdef DEBUG
+		log << "fetch_name begin!\n";
+#endif
 	StrSlice name;//默认地，name的指针为空，长度为0
 	uint i;
 	for(i=0; i<_slice.len; i++)
-		if(_slice[i] == '_' || is_letter(_slice[i]))
+	{
+		if(_slice[i] == '_' || is_letter(_slice[i])) //一直扫描到名字的首字母（英文字母或者下划线），然后跳出循环
 			break;
+#ifdef DEBUG
+		log << "Function fetch_name: discarded letter:" << _slice[i] << '\n';
+#endif
+	}
 	if(i == _slice.len)//如果遍历到末尾还没有找到符合要求的段落，就返回空的片段
 		return name;
 	name.ptr = &_slice[i];
 	uint begin {i};
 	i++;
-	while(is_letter(_slice[i]) || is_number(_slice[i]))//遍历完一整个name
+	while((is_letter(_slice[i]) || is_number(_slice[i])) && i != _slice.len)//遍历完一整个name
 		i++;
 	name.len = i - begin;
+
+#ifdef DEBUG
+	//log.close();
+#endif
+
 	return name;
 
 }

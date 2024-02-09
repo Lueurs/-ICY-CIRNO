@@ -62,7 +62,14 @@ char *find_first_char(StrSlice& _slice,char _ch); //p[]找到字符串切片中�
 
 char get_pair_sign(char _c);		//p[?]为字符配对。传入'('则返回')',传入'['则返回']'...
 
-char* find_pair_sign(char* _begin,int _range = -1);	//[]找到该字符配对的另一个字符的位置
+char* find_pair_sign(char* _begin,int _range = -1);	//p[]找到该字符配对的另一个字符的位置
 
+bool is_current_token_correct(StrSlice &_slice);	//检查当前的token是否合法
 
-StrSlice fetch_name(StrSlice &_slice);	//	[?]找到第一个符合命名规范的片段,如在"var a = 12"中提取出"var"
+StrSlice fetch_name(StrSlice &_slice);	//p[]找到第一个符合命名规范的片段,如在"var a = 12"中提取出"var"
+
+StrSlice fetch_number(StrSlice &_slice);	//p[?]找到第一段数字字符切片
+
+bool is_strslice_wrapped_by_brackets(StrSlice &_slice);		//p[]检查这一段代码是否被无意义的圆括号包裹
+
+void decorticate_strslice(StrSlice &_slice);			//[?]无条件地去除代码中的起始和结尾字符

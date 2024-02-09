@@ -1,6 +1,6 @@
 
-#include"debug.hpp"
-#define DEBUG 114514
+#include"icydebug.hpp"
+//#define DEBUG 114514
 
 #ifdef DEBUG
 #include<iostream>
@@ -8,19 +8,6 @@
 
 using uint   = unsigned int;
 using ushort = unsigned short;
-
-const char* g_icy_keywords[] = {
-	"func",
-	"var",
-	"ret",
-	"mutual",
-	"const",
-	"if",
-	"for",
-	"foreach",
-	"loopif"
-};
-
 
 uint strlen(char* _str)
 {
@@ -136,7 +123,9 @@ bool is_strslice_realnum(StrSlice &_slice)
 {
 	uint num_dots{0};
 	bool result{true};
-	for(uint i=0; i < _slice.len; i++)
+	if(!is_number(_slice[0]))
+		return false;
+	for(uint i=1; i < _slice.len; i++)
 	{
 		if(_slice[i] == '.')
 			num_dots ++;
@@ -145,8 +134,10 @@ bool is_strslice_realnum(StrSlice &_slice)
 	}
 	if(num_dots != 1)//如果小数点多于一个则这不是一个浮点实数（显然一个数字我们最多只能写一个小数点
 		return false;
-	if(num_dots == _slice.len)//不可以全都是小数点，这包含了StrSlice有且仅有一个小数点的情况.
+	if(_slice[_slice.len-1] == '.')//不可以以小数点结尾
 		return false;
+	//if(num_dots == _slice.len)//不可以全都是小数点，这包含了StrSlice有且仅有一个小数点的情况.
+	//	return false;
 	return result;
 }
 
@@ -229,9 +220,7 @@ char* find_pair_sign(char *_begin,int _range = -1)
 				if(level == 0)
 					break;
 			}
-#ifdef DEBUG
-			log << "scanned character:" <<*_begin << ",level = " << level << '\n';
-#endif
+
 			_begin++;
 		}
 	}
@@ -247,49 +236,96 @@ char* find_pair_sign(char *_begin,int _range = -1)
 				if(level == 0)
 					break;
 			}
-#ifdef DEBUG
-			log << "scanned character:" <<*_begin << ",level = " << level << '\n';
-#endif
 			_begin++;
 		}
 	}
 	if(level != 0)
-		throw_exception("Exception from function find_pair_sign:unpaired bracket");//如果level不等于零说明代码中的括号没有匹配完整，抛出错误。
-#ifdef DEBUG
-	//log.close();
-#endif
+		throw"Exception from function find_pair_sign:unpaired bracket";//如果level不等于零说明代码中的括号没有匹配完整，抛出错误。
+
 	return _begin;
 
 }
 
 StrSlice fetch_name(StrSlice &_slice)//找到StrSlice中符合命名规范的第一个片段
 {
-#ifdef DEBUG
-		log << "fetch_name begin!\n";
-#endif
 	StrSlice name;//默认地，name的指针为空，长度为0
 	uint i;
 	for(i=0; i<_slice.len; i++)
 	{
 		if(_slice[i] == '_' || is_letter(_slice[i])) //一直扫描到名字的首字母（英文字母或者下划线），然后跳出循环
 			break;
-#ifdef DEBUG
-		log << "Function fetch_name: discarded letter:" << _slice[i] << '\n';
-#endif
 	}
 	if(i == _slice.len)//如果遍历到末尾还没有找到符合要求的段落，就返回空的片段
 		return name;
 	name.ptr = &_slice[i];
 	uint begin {i};
-	i++;
-	while((is_letter(_slice[i]) || is_number(_slice[i])) && i != _slice.len)//遍历完一整个name
+	while(i != _slice.len && (is_letter(_slice[i]) || is_number(_slice[i]) || _slice[i] == '_'))//遍历完一整个name
 		i++;
 	name.len = i - begin;
-
-#ifdef DEBUG
-	//log.close();
-#endif
-
 	return name;
 
+}
+
+StrSlice fetch_number(StrSlice &_slice)
+{
+	StrSlice number;
+	uint i=0;
+	bool dot{false};	//此时还未发现小数点
+	for(; i<_slice.len; i++)
+	{
+		if(_slice[i] == '.')
+		{
+			dot = true;		//对小数点已经出现的情况进行标记
+			break;
+		}
+		else if(is_number(_slice[i]))
+			break;									//如果遇到小数点或者数字，就跳出循环，在下面尝试读取这个[可能是数字]的片段
+	}
+	while(i != _slice.len && (is_number(_slice[i]) || _slice[i] == '.'))
+	{
+		if(_slice[i] == '.')
+		{
+			if(dot)
+				break;	//	如果前面已经有小数点了，那就跳出
+			dot = true;//做标记
+		}
+		i++;
+	}
+	return number;
+}
+
+bool is_strslice_wrapped_by_brackets(StrSlice &_slice)
+{
+	if(_slice[0] != '(')
+		return false;
+	ushort level{1};
+
+	uint i{1};
+	for(; i<_slice.len; i++)
+	{
+		if(_slice[i] == '(')
+			level++;
+		else if(_slice[i] == ')')
+			level--;
+		if(level == 0)
+			break;
+	}
+	//跳出之后i的值就是第一个圆括号完成配对的地方。如果这个括号是在末尾才被配对，说明这段代码完全被一个无意义圆括号包裹着。
+	if(level != 0)
+		throw"Exception from function \"is_strslice_wrapped_by_bracket\":unpaired bracket";
+	if(i == _slice.len-1)
+		return true;
+	else
+		return false;
+}
+
+void decorticate_strslice(StrSlice &_slice)
+{
+	if(_slice.len <= 2)
+		throw "Exception from function \"decorticate_strslice\":too short slice to be decorticated.";
+	else{
+		_slice.ptr++;
+		_slice.len -= 2;
+	}
+	
 }

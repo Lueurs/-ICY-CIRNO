@@ -34,6 +34,10 @@ namespace Cirno{
 
 	};
 
+	bool is_icy_keywd(StrSlice&);	//[]p检测代码中的字符片段是否是关键字
+
+	ushort slice_operation_priority_level(StrSlice& _slice);	//p[]返回当前运算的运算优先级(数字越小优先级越高)
+
 	StrSlice icy_fetch_current_token(StrSlice &_slice);	//[?]读取（或者说标记）当前完整的一个操作符或操作数
 
 	StrSlice icy_find_minlevel_token(StrSlice);	//[?]找到该片段中优先级最低的操作符
@@ -57,7 +61,6 @@ namespace Cirno{
 	 * * 我不想要太多混乱的参数
 	 */
 
-	ushort slice_operation_priority_level(StrSlice& _slice);	//p[]返回当前运算的运算优先级(数字越小优先级越高)
 
 
 

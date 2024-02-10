@@ -40,7 +40,7 @@ namespace Cirno{
 
 	StrSlice icy_fetch_current_token(StrSlice &_slice);	//[?]读取（或者说标记）当前完整的一个操作符或操作数
 
-	StrSlice icy_find_minlevel_token(StrSlice);	//[?]找到该片段中优先级最低的操作符
+	StrSlice icy_find_minlevel_token(StrSlice);	//[!]找到该片段中优先级最低的操作符
 
 	icyAstNode* icy_generate_ast(StrSlice &_slice);	//[?]通过分析字符串，生成相应的抽象语法树
 

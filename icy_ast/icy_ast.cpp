@@ -233,7 +233,28 @@ namespace Cirno{
 
 				}
 			}
-
+			else if(_slice[i] == '>' || _slice[i] == '<')
+			{
+				if(i == _slice.len - 1)//如果等于号右方已经不存在代码段，说明这个运算符的参数不足
+					throw"Exception from function \"icy_find_minlevel_token\": operator lose argument";
+				temp.ptr = _slice.ptr + i;
+				if(_slice[i+1] == '=')
+				{
+					temp.len = 2;
+					if(i == _slice.len-2)
+						throw"Exception from function \"icy_find_minlevel_token\": operator lose argument";					
+				}
+				else
+					temp.len = 1;
+				if(slice_operation_priority_level(temp) >= level_value)
+				{
+					level_value = slice_operation_priority_level(temp);
+					root_operation = temp;					
+				}
+				i += temp.len;
+				continue;
+			}
+			//处理关键字或者引用
 			else if(_slice[i] == '_' || is_letter(_slice[i]))
 			{
 				//先获取这一片段
@@ -259,6 +280,7 @@ namespace Cirno{
 				continue;
 
 			}
+			//处理数字
 			else if(is_number(_slice[i]))	//数字引用的运算优先级是最高的,将会被置于叶子节点上
 			{
 				temp = fetch_number(StrSlice(_slice.ptr + i));

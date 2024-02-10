@@ -266,21 +266,17 @@ StrSlice fetch_name(StrSlice &_slice)//找到StrSlice中符合命名规范的第
 
 }
 
-StrSlice fetch_number(StrSlice &_slice)
+StrSlice fetch_number(StrSlice _slice)
 {
 	StrSlice number;
 	uint i=0;
 	bool dot{false};	//此时还未发现小数点
 	for(; i<_slice.len; i++)
 	{
-		if(_slice[i] == '.')
-		{
-			dot = true;		//对小数点已经出现的情况进行标记
-			break;
-		}
-		else if(is_number(_slice[i]))
+		if(is_number(_slice[i]))
 			break;									//如果遇到小数点或者数字，就跳出循环，在下面尝试读取这个[可能是数字]的片段
 	}
+	number.ptr = _slice.ptr + i;
 	while(i != _slice.len && (is_number(_slice[i]) || _slice[i] == '.'))
 	{
 		if(_slice[i] == '.')
@@ -289,6 +285,7 @@ StrSlice fetch_number(StrSlice &_slice)
 				break;	//	如果前面已经有小数点了，那就跳出
 			dot = true;//做标记
 		}
+		number.len++;
 		i++;
 	}
 	return number;

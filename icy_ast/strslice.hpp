@@ -68,7 +68,7 @@ bool is_current_token_correct(StrSlice &_slice);	//检查当前的token是否合
 
 StrSlice fetch_name(StrSlice &_slice);	//p[]找到第一个符合命名规范的片段,如在"var a = 12"中提取出"var"
 
-StrSlice fetch_number(StrSlice &_slice);	//p[?]找到第一段数字字符切片
+StrSlice fetch_number(StrSlice _slice);	//p[?]找到第一段数字字符切片
 
 bool is_strslice_wrapped_by_brackets(StrSlice &_slice);		//p[]检查这一段代码是否被无意义的圆括号包裹
 

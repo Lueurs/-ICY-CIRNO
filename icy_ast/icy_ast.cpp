@@ -156,19 +156,43 @@ namespace Cirno{
 			decorticate_strslice(_slice);
 		
 		StrSlice temp;
-		for(uint i=0; i<_slice.len;i++)
+		uint i{0};
+		while(i < _slice.len)
 		{
+			//跳过圆括号
 			if(_slice[i] == '(')	//直接跳过括号里的内容，因为括号中的必然要被先计算
 			{
-				char *new_pos = find_pair_sign(_slice.ptr,_slice.len);
+				char *new_pos = find_pair_sign(_slice.ptr + i,_slice.len);
 				i += (new_pos - _slice.ptr);
 				continue;
 			}
+			//跳过空格
 			if(_slice[i] == ' ')
 			{
-				for(; _slice[i] == ' ';i++);
+				while(_slice[i] == ' ')
+					i++;
 				continue;
 			}
+			//调用函数的符号
+			if(_slice[i] == '@')
+			{
+				if(i == _slice.len-1)
+					throw"Exception from function \"icy_find_minlevel_token\": operator lose argument.";
+				else
+				{
+					temp.ptr = _slice.ptr + i;
+					temp.len = 1;
+					if(slice_operation_priority_level(temp) >= level_value)
+					{
+						level_value = slice_operation_priority_level(temp);
+						root_operation = temp;
+					}
+					i++;
+					continue;
+				}
+			}
+
+			//加减乘除等运算符
 			if(_slice[i] == '+'	||
 			   _slice[i] == '-'	||
 			   _slice[i] == '*'	||
@@ -216,27 +240,38 @@ namespace Cirno{
 				temp.ptr = _slice.ptr + i;
 				temp.len = 1;
 				i++;
-				for(;is_letter(_slice[i] || is_number(_slice[i] || _slice[i] == '_')); i++)
+				for(;i < _slice.len && (is_letter(_slice[i]) || is_number(_slice[i]) || _slice[i] == '_'); i++)
 					temp.len++;
 				//检查是否是关键字
 				if(is_icy_keywd(temp))
 					if(slice_operation_priority_level(temp) >= level_value)
 					{
 						level_value = slice_operation_priority_level(temp);
-						root_operation = temp;
-						continue;
-					}
+						root_operation = temp;					}
 				else//不是关键字，但以这种形式出现，那只能是一个对象名，对象引用的运算优先级最高，因此会作为AST的叶子节点
 				{
 					if(0 >= level_value)
 					{
 						level_value = 0;
 						root_operation = temp;
-						continue;
 					}
 				}
+				continue;
 
 			}
+			else if(is_number(_slice[i]))	//数字引用的运算优先级是最高的,将会被置于叶子节点上
+			{
+				temp = fetch_number(StrSlice(_slice.ptr + i));
+				if(0 >= level_value)
+				{
+					level_value = 0;
+					root_operation = temp;
+				}
+				i += temp.len;
+				continue;
+			}
+
+			i++;
 		}
 		//啊，农历的新年到了。今年是龙年。希望我能在开学前完成这个程序的主体部分。
 		return root_operation;

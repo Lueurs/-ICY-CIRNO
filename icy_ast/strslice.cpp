@@ -195,6 +195,7 @@ char get_pair_sign(char _c)
 		case '(':	return ')';
 		case ')':	return '(';
 		case '[':	return ']';
+		case ']':	return '[';
 		case '{':	return '}';
 		case '}':	return '{';
 		default:

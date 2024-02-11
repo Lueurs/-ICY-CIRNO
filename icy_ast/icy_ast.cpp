@@ -5,42 +5,80 @@
 char SQUARE_BRACKET[] = "[]";
 
 namespace Cirno{
-	enum icy_nodetype_t:ushort
-	{
-		OBJECT,
-		CONST_OBJECT,
 
-
-		MOV,
-
-		CALL,
-
-		ADD,
-		MINUS,
-		MUL,
-		DIV,
-		POW,
-
-
-	};
 
 	const char* g_icykeywd_array[] = {
 		"var",
+		"mutual",
 		"and",
 		"or",
 		"func",
-		"ret"
+		"ret",
+		"class",
+		"hlt"
 	};
 	
+	enum icy_nodetype_t:ushort
+	{
+		NODETP_UNKNOWN,
+
+		NODETP_CREATE_LOCAL_OBJ,
+		NODETP_CREATE_MUTUAL_OBJ,
+
+		NODETP_OBJECT,
+		NODETP_CONST_OBJECT,
+
+
+		NODETP_MOV,
+
+		NODETP_CALL,
+
+		NODETP_ADD,
+		NODETP_MINUS,
+		NODETP_MUL,
+		NODETP_DIV,
+		NODETP_POW,
+
+		NODETP_EQUAL,
+		NODETP_GREATER,
+		NODETP_LESS,
+		NODETP_LE,
+		NODETP_GE,
+
+		NODETP_AND,
+		NODETP_OR,
+		NODETP_NOT,
+
+		NODETP_ACCESS,	//	访问对象成员
+		NODETP_SHIF_ACCESS,	//访问列表元素
+
+		_NODETPSEC_CONTROL_SECTION_,
+
+		NODETP_IF,
+		NODETP_LOOPIF,
+		NODETP_LOOPUNTIL,
+		NODETP_FOR,
+		NODETP_FOREACH,
+
+	};
 
     struct icyAstNode
 	{
 		std::vector<icyAstNode*>  sub_nodes; // 这里储存了子节点的指针，默认两个子节点。
 		icy_nodetype_t            node_type;		//该节点的类型
 		uint                      source;			//该节点的资源编号
+
+		icyAstNode(uint _num_subnodes = 3);
 	};
+	icyAstNode::icyAstNode(uint _num_subnodes = 3)
+		:sub_nodes(_num_subnodes),source(0)	//默认情况下我们预留了三个子节点的空间...特殊情况下可以要求更多的初始空间，比方说这个节点是一个循环体。或者我们之后会换一种数据结构来存放子节点的指针
+	{}
 
-
+	struct StrOperator
+	{
+		StrSlice 		slice;
+		icy_nodetype_t	nodetype;
+	};
 
 	bool is_icy_keywd(StrSlice &_slice)
 	{
@@ -49,27 +87,6 @@ namespace Cirno{
 				return true;
 		return false;
 	}
-
-
-    /*
-	 *call a function
-	 *not
-	 *pow
-	 *multiply/divide
-	 *add/minus
-	 *and/or
-	 */
-
-
-	/*
-	 * 问题:
-	 * 有些运算符是分散的，我们应该怎样才能...
-	 * 方案:不让StrSlice索引向原来的代码段，而是重新开一块堆内存，放一个连续完整的运算符进去。
-	 * 对于同一种运算符，开一块内存就够了，因为所有索引到这块内存的StrSlice只会读不会改
-	 *
-	 */
-
-
 
 	//或许会有更高效的映射方法？
 	//直接的对象引用或者数据，优先级是0
@@ -111,56 +128,12 @@ namespace Cirno{
 			return 0;
 	}
 
-	//var myValue = (1+2)*3
-	//
-	//从左到右扫描，找到最低一级优先级运算符中位置在最右边的，这个运算符会生成ast的根节点
-	//以此类推，从左到右每次提取最右边的最低优先级操作符（运算符），向下迭代生成ast，当递归执行这个ast的时候就相当于从左向右执行原代码的指令
-	//遇到方括号怎么办？这个函数是在icy_find_minlevel_token中被调用的，icy_find_minlevel_token可以检查这个函数抽取出了什么内容，然后再对下一步的解析策略做调整。
-	StrSlice icy_fetch_current_token(StrSlice &_slice)
-	{
-		StrSlice current_token;
-		if(_slice[0] == '[')	//[]会生成一个array(大概，也可能是别的什么数据结构，比如说rbt)
-		{
-			int level{0};
-			for(uint i=0; i < _slice.len; i++)
-			{
-				if(_slice[i] == '[')
-					level ++;
-				else if(_slice[i] == ']')
-				{
-					level --;
-					if(level == 0)
-						break;
-				}
-			}
-			if(level != 0)
-				throw"Exception from function icy_fetch_current_token:unpaired square bracket\n";
-			current_token.ptr = const_cast<char*>("[]");
-			current_token.len = 2;
-		}
-		else if(_slice[0] == '(')
-		{
-			char* end = find_pair_sign(_slice.ptr,_slice.len);
-			current_token.ptr = _slice.ptr;
-			current_token.len = end - _slice.ptr;
-		}
-		return current_token;
-
-	}
-
-	/*
-	*/
-	/*
-	 *
-	 * arr = [0,1,2,3,4,5]
-	 * arr[0]
-	 *
-	 */
 
 	StrSlice icy_find_minlevel_token(StrSlice _slice)//找出运算优先级最低的那一个！我们会将其置于subtree的根节点上
 	{
 		StrSlice root_operation;
 		ushort	 level_value{0};
+		icy_nodetype_t node_type;
 
 		StrSlice temp;
 		ushort current_level{0};
@@ -348,6 +321,88 @@ namespace Cirno{
 		//啊，农历的新年到了。今年是龙年。希望我能在开学前完成这个程序的主体部分。
 
 		return root_operation;
+	}
+
+
+
+
+	//之后想办法换一种映射方法
+	icyAstNode *make_ast_node_via_strslice(StrSlice _slice_operator)
+	{
+		icyAstNode *p_ret_astnode{nullptr};
+		
+		icy_nodetype_t node_type;
+
+		if(is_strslice_number(_slice_operator))
+			node_type = NODETP_CONST_OBJECT;
+		else if(_slice_operator == "=")
+			node_type = NODETP_MOV;
+		else if(_slice_operator == "@")
+			node_type = NODETP_CALL;
+		else if(_slice_operator == "+")
+			node_type = NODETP_ADD;
+		else if(_slice_operator == "-")
+			node_type = NODETP_MINUS;
+		else if(_slice_operator == "*")
+			node_type = NODETP_MUL;
+		else if(_slice_operator == "/")
+			node_type = NODETP_DIV;
+		else if(_slice_operator == "^")
+			node_type = NODETP_POW;
+		else if(_slice_operator == "==")
+			node_type = NODETP_EQUAL;
+		else if(_slice_operator == ">")
+			node_type = NODETP_GREATER;
+		else if(_slice_operator == "<")
+			node_type = NODETP_LESS;
+		else if(_slice_operator == ">=")
+			node_type = NODETP_GE;
+		else if(_slice_operator == "<=")
+			node_type = NODETP_LE;
+		else if(_slice_operator == "and")
+			node_type = NODETP_AND;
+		else if(_slice_operator == "or")
+			node_type = NODETP_OR;
+		else if(_slice_operator == "!")
+			node_type = NODETP_NOT;
+		else if(_slice_operator == ".")
+			node_type = NODETP_ACCESS;
+		else if(_slice_operator == "[]")
+			node_type = NODETP_SHIF_ACCESS;
+		else if(_slice_operator == "if")
+			node_type = NODETP_IF;
+		else if(_slice_operator == "loopif")
+			node_type = NODETP_LOOPIF;
+		else if(_slice_operator == "loopuntil")
+			node_type = NODETP_LOOPUNTIL;
+		else if(_slice_operator == "for")
+			node_type = NODETP_FOR;
+		else if(_slice_operator == "foreach")
+			node_type = NODETP_FOREACH;
+		else if(_slice_operator == "var")
+			node_type = NODETP_CREATE_LOCAL_OBJ;
+		else if(_slice_operator == "mutual")
+			node_type = NODETP_CREATE_MUTUAL_OBJ;
+		else if(icy_naming_check(_slice_operator))
+		{
+			if(!is_icy_keywd(_slice_operator))//如果不是关键字，那么就是一个对象名
+				node_type = NODETP_OBJECT;
+		}
+		else
+			throw"Exception from function\"make_ast_node_via_strslice\": unknown type.";
+
+		if(node_type > _NODETPSEC_CONTROL_SECTION_)//如果是控制指令就多准备一些空间。
+		{
+			p_ret_astnode = new icyAstNode(8U);
+		}
+		else
+		{
+			p_ret_astnode = new icyAstNode(2U);
+		}
+
+		p_ret_astnode->node_type = node_type;
+		return p_ret_astnode;
+
 	}
 
 

@@ -41,6 +41,8 @@ struct StrSlice
 	StrSlice(const char* _cstr);
 	StrSlice(char* _str);
 	char &operator[](uint _idx);
+	bool operator == (const char* _cstr);
+	bool operator == (StrSlice &_slice);
 };
 
 StrSlice::StrSlice()
@@ -72,7 +74,23 @@ char &StrSlice::operator[](uint _idx)//[?]
 
 }
 
+bool StrSlice::operator==(const char* _cstr)
+{
+	return compair_strslice_with_cstr(*this,_cstr);
+}
 
+bool StrSlice::operator == (StrSlice& _slice)
+{
+	if(_slice.ptr == ptr && _slice.len == len)
+		return true;
+	else if(_slice.len != len)
+		return false;
+	else
+		for(uint i=0;i<len;i++)
+			if(_slice[i] != *(ptr+i))
+				return false;
+	return true;
+}
 
 
 

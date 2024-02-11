@@ -19,6 +19,8 @@ struct StrSlice
 	StrSlice(const char* _cstr);
 	StrSlice(char* _str);	//[?]
 	char &operator[](uint _idx);//[?]
+	bool operator == (const char* _cstr);//[?]
+	bool operator == (StrSlice& _slice);//[?]
 };
 
 

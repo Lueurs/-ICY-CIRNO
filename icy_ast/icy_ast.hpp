@@ -9,20 +9,45 @@ namespace Cirno{
 
 	enum icy_nodetype_t:ushort
 	{
-		OBJECT,
-		CONST_OBJECT,
+		NODETP_UNKNOWN,
+
+		NODETP_CREATE_LOCAL_OBJ,	//创建局部对象
+		NODETP_CREATE_MUTUAL_OBJ,	//创建共享对象
+
+		NODETP_OBJECT,
+		NODETP_CONST_OBJECT,
 
 
-		MOV,
+		NODETP_MOV,
 
-		CALL,
+		NODETP_CALL,
 
-		ADD,
-		MINUS,
-		MUL,
-		DIV,
-		POW,
+		NODETP_ADD,
+		NODETP_MINUS,
+		NODETP_MUL,
+		NODETP_DIV,
+		NODETP_POW,
 
+		NODETP_EQUAL,
+		NODETP_GREATER,
+		NODETP_LESS,
+		NODETP_LE,
+		NODETP_GE,
+
+		NODETP_AND,
+		NODETP_OR,
+		NODETP_NOT,
+
+		NODETP_ACCESS,	//	访问对象成员
+		NODETP_SHIF_ACCESS,	//访问列表元素
+
+		_NODETPSEC_CONTROL_SECTION_,
+
+		NODETP_IF,
+		NODETP_LOOPIF,
+		NODETP_LOOPUNTIL,
+		NODETP_FOR,
+		NODETP_FOREACH,
 
 	};
 
@@ -32,6 +57,14 @@ namespace Cirno{
 		icy_nodetype_t            node_type;		//该节点的类型
 		uint                      source;			//该节点的资源编号
 
+		icyAstNode(uint _num_subnodes = 3U);		//默认给三个子节点预留了空间
+
+	};
+
+	struct StrOperator
+	{
+		StrSlice 		slice;
+		icy_nodetype_t	nodetype;
 	};
 
 	bool is_icy_keywd(StrSlice&);	//[]p检测代码中的字符片段是否是关键字
@@ -61,6 +94,7 @@ namespace Cirno{
 	 * * 我不想要太多混乱的参数
 	 */
 
+	icyAstNode *make_ast_node_via_strslice(StrSlice _slice_operator);	//根据指令的字符来生成一个相应的icy抽象语法树节点
 
 
 

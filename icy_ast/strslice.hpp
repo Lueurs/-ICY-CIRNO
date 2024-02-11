@@ -73,3 +73,13 @@ StrSlice fetch_number(StrSlice _slice);	//p[?]找到第一段数字字符切片
 bool is_strslice_wrapped_by_brackets(StrSlice &_slice);		//p[]检查这一段代码是否被无意义的圆括号包裹
 
 void decorticate_strslice(StrSlice &_slice);			//[?]无条件地去除代码中的起始和结尾字符
+
+template<typename T>									//p[?]检查一段内存中是否有指定的值
+bool is_range_contain(T *_begin, T *_end, T _targ)
+{
+
+	for(;_begin != _end; _begin++)
+		if(*_begin == _targ)
+			return true;
+	return false;
+}			

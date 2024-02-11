@@ -2,6 +2,8 @@
 #include"strslice.hpp"
 #include"icydebug.hpp"
 
+char SQUARE_BRACKET[] = "[]";
+
 namespace Cirno{
 	enum icy_nodetype_t:ushort
 	{
@@ -71,12 +73,15 @@ namespace Cirno{
 
 	//或许会有更高效的映射方法？
 	//直接的对象引用或者数据，优先级是0
+	//数字越小运算优先级越高
     ushort slice_operation_priority_level(StrSlice& _slice)
 	{
-		if(compair_strslice_with_cstr(_slice,"@"))
+		if(compair_strslice_with_cstr(_slice,"[]"))
 			return 1;
-		else if(compair_strslice_with_cstr(_slice,"!"))
+		else if(compair_strslice_with_cstr(_slice,"@"))
 			return 2;
+		else if(compair_strslice_with_cstr(_slice,"!"))
+			return 3;
 		else if(compair_strslice_with_cstr(_slice,"^"))
 			return 4;
 		else if(compair_strslice_with_cstr(_slice,"*") || compair_strslice_with_cstr(_slice,"/"))
@@ -95,6 +100,11 @@ namespace Cirno{
 
 		else if(compair_strslice_with_cstr(_slice,"and") || compair_strslice_with_cstr(_slice,"or"))
 			return 32;
+		else if(compair_strslice_with_cstr(_slice,"+=") || 
+				compair_strslice_with_cstr(_slice,"-=") ||
+				compair_strslice_with_cstr(_slice,"*=") ||
+				compair_strslice_with_cstr(_slice,"/="))
+			return 48;
 		else if(compair_strslice_with_cstr(_slice,"ret"))
 			return 64;
 		else
@@ -152,10 +162,13 @@ namespace Cirno{
 		StrSlice root_operation;
 		ushort	 level_value{0};
 
+		StrSlice temp;
+		ushort current_level{0};
+
 		while(is_strslice_wrapped_by_brackets(_slice))//首先应该去除多余的括号
 			decorticate_strslice(_slice);
 		
-		StrSlice temp;
+
 		uint i{0};
 		while(i < _slice.len)
 		{
@@ -265,10 +278,13 @@ namespace Cirno{
 					temp.len++;
 				//检查是否是关键字
 				if(is_icy_keywd(temp))
+				{
 					if(slice_operation_priority_level(temp) >= level_value)
 					{
 						level_value = slice_operation_priority_level(temp);
-						root_operation = temp;					}
+						root_operation = temp;					
+					}
+				}
 				else//不是关键字，但以这种形式出现，那只能是一个对象名，对象引用的运算优先级最高，因此会作为AST的叶子节点
 				{
 					if(0 >= level_value)
@@ -292,20 +308,48 @@ namespace Cirno{
 				i += temp.len;
 				continue;
 			}
+			//处理[]
+			//怎样判断运算符左边已经有参数了呢？
+			/*
+			var value = arr[i]
+							=
+			left:                         right:
+			var value                     arr[i]
+			*/
+			else if(_slice[i] == '[')
+			{
+				char* end_bracket_pos = find_pair_sign(_slice.ptr + i,_slice.len);
+				if(is_range_contain<char>(_slice.ptr+i,end_bracket_pos,','))	//如果方括号内有逗号那就是列表
+				{
+					temp.ptr = _slice.ptr + i;
+					temp.len = end_bracket_pos - (_slice.ptr + i) + 1;
+					if(0 >= level_value)
+					{
+						level_value = 0;
+						root_operation = temp;
+					}
+				}				
+				else
+				{
+					temp.ptr = SQUARE_BRACKET;
+					temp.len = strlen(SQUARE_BRACKET);
+					if(slice_operation_priority_level(temp) >= level_value)
+					{
+						level_value = slice_operation_priority_level(temp);
+						root_operation = temp;
+					}
+				}
+				i += end_bracket_pos - (_slice.ptr + i) + 1;
+				continue;
+			}
 
 			i++;
 		}
 		//啊，农历的新年到了。今年是龙年。希望我能在开学前完成这个程序的主体部分。
+
 		return root_operation;
 	}
 
-
-/*
-	icyAstNode* icy_generate_ast(StrSlice &_slice)
-    {
-		return nullptr;
-    }
-*/
 
 }
 

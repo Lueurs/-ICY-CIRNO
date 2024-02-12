@@ -25,7 +25,9 @@ namespace Cirno{
 		NODETP_CREATE_LOCAL_OBJ,
 		NODETP_CREATE_MUTUAL_OBJ,
 
-		NODETP_OBJECT,
+	_NODETPSEC_OBJECT_SEC_,
+		NODETP_LOCAL_OBJECT,
+		NODETP_MUTUAL_OBJECT,
 		NODETP_CONST_OBJECT,
 
 
@@ -52,7 +54,7 @@ namespace Cirno{
 		NODETP_ACCESS,	//	访问对象成员
 		NODETP_SHIF_ACCESS,	//访问列表元素
 
-		_NODETPSEC_CONTROL_SECTION_,
+	_NODETPSEC_CONTROL_SECTION_,
 
 		NODETP_IF,
 		NODETP_LOOPIF,
@@ -68,11 +70,13 @@ namespace Cirno{
 		icy_nodetype_t            node_type;		//该节点的类型
 		uint                      source;			//该节点的资源编号
 
-		icyAstNode(uint _num_subnodes = 3);
+		icyAstNode(uint _num_subnodes);
 	};
-	icyAstNode::icyAstNode(uint _num_subnodes = 3)
-		:sub_nodes(_num_subnodes),source(0)	//默认情况下我们预留了三个子节点的空间...特殊情况下可以要求更多的初始空间，比方说这个节点是一个循环体。或者我们之后会换一种数据结构来存放子节点的指针
-	{}
+	icyAstNode::icyAstNode(uint _num_subnodes = 3U)
+		:source(0)	//默认情况下我们预留了三个子节点的空间...特殊情况下可以要求更多的初始空间，比方说这个节点是一个循环体。或者我们之后会换一种数据结构来存放子节点的指针
+	{
+		sub_nodes.reserve(_num_subnodes);
+	}
 
 	struct StrOperator
 	{
@@ -386,7 +390,7 @@ namespace Cirno{
 		else if(icy_naming_check(_slice_operator))
 		{
 			if(!is_icy_keywd(_slice_operator))//如果不是关键字，那么就是一个对象名
-				node_type = NODETP_OBJECT;
+				node_type = _NODETPSEC_OBJECT_SEC_;
 		}
 		else
 			throw"Exception from function\"make_ast_node_via_strslice\": unknown type.";
@@ -394,6 +398,10 @@ namespace Cirno{
 		if(node_type > _NODETPSEC_CONTROL_SECTION_)//如果是控制指令就多准备一些空间。
 		{
 			p_ret_astnode = new icyAstNode(8U);
+		}
+		else if(node_type == _NODETPSEC_OBJECT_SEC_)
+		{
+			p_ret_astnode = new icyAstNode(0u);
 		}
 		else
 		{

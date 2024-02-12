@@ -45,6 +45,34 @@ struct StrSlice
 	bool operator == (StrSlice &_slice);
 };
 
+bool compair_strslice_with_str(StrSlice &_strslice,char *_str)
+{
+	if(strlen(_str) != _strslice.len)
+		return false;
+	else
+	{
+		bool result = true;
+		for(uint i=0; i < _strslice.len; i++)
+			if(_str[i] != _strslice[i])
+				result = false;
+		return result;
+	}
+}
+
+bool compair_strslice_with_cstr(StrSlice &_strslice,const char*_cstr)
+{
+	if(strlen(_cstr) != _strslice.len)
+		return false;
+	else
+	{
+		bool result = true;
+		for(uint i=0; i < _strslice.len; i++)
+			if(_cstr[i] != _strslice[i])
+				result = false;
+		return result;
+	}
+}
+
 StrSlice::StrSlice()
 	:ptr(nullptr),len(0){}
 
@@ -98,34 +126,6 @@ bool StrSlice::operator == (StrSlice& _slice)
 bool is_number(char _c)
 {
 	return _c>='0' && _c <= '9';
-}
-
-bool compair_strslice_with_str(StrSlice &_strslice,char *_str)
-{
-	if(strlen(_str) != _strslice.len)
-		return false;
-	else
-	{
-		bool result = true;
-		for(uint i=0; i < _strslice.len; i++)
-			if(_str[i] != _strslice[i])
-				result = false;
-		return result;
-	}
-}
-
-bool compair_strslice_with_cstr(StrSlice &_strslice,const char*_cstr)
-{
-	if(strlen(_cstr) != _strslice.len)
-		return false;
-	else
-	{
-		bool result = true;
-		for(uint i=0; i < _strslice.len; i++)
-			if(_cstr[i] != _strslice[i])
-				result = false;
-		return result;
-	}
 }
 
 bool is_strslice_integer(StrSlice &_slice)
@@ -183,12 +183,26 @@ bool icy_naming_check(StrSlice &_slice)
 	return result;
 }
 
-char* jump_space(char* _pos)
+char* jump_space(char* _pos,uint _range = 0)
 {
-	while(*_pos != ' ' && *_pos)	//先定位到有空格的地方
-		_pos++;
-	while(*_pos == ' ' && *_pos)	//再跳过所有空格
-		_pos++;
+	if(_range)
+		for(uint i=0;i<_range && *_pos == ' ';i++)
+			_pos++;
+	else
+		while(*_pos == ' ')
+			_pos++;
+	return _pos;
+}
+
+
+char *jump_space_et_linefd(char * _pos,uint _range = 0)
+{
+	if(_range)
+		for(uint i=0;i<_range && (*_pos == ' ' || *_pos == '\n');i++)
+			_pos++;
+	else
+		while(*_pos == ' ' || *_pos == '\n')
+			_pos++;
 	return _pos;
 }
 

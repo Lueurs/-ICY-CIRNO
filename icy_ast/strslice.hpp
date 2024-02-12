@@ -58,7 +58,9 @@ bool is_letter(char _c);//p[]检测一个字符是否是英文字母
 
 bool icy_naming_check(StrSlice &_slice);    //p[]检测一个切片是否符合命名规范
 
-char* jump_space(char* _in);	//p[]从当前字符起向后，跳过第一段空格，返回这一段空格后的第一个字符的指针
+char* jump_space(char* _pos,uint _range = 0);	//p[?]从当前字符起向后，跳过第一段空格，返回这一段空格后的第一个字符的指针
+
+char *jump_space_et_linefd(char *_pos,uint _range = 0);	//[?]从当前字符起向后，跳过第一段空格和回车，返回这一段空格或回车后的第一个字符的指针
 
 char *find_first_char(StrSlice& _slice,char _ch); //p[]找到字符串切片中指定字符首次出现的位置
 

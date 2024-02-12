@@ -30,7 +30,8 @@ namespace Cirno{
 		NODETP_MUTUAL_OBJECT,
 		NODETP_CONST_OBJECT,
 
-
+//以下是双目运算符
+	_NODETPSEC_BIN_BEGIN_,
 		NODETP_MOV,
 
 		NODETP_CALL,
@@ -49,10 +50,12 @@ namespace Cirno{
 
 		NODETP_AND,
 		NODETP_OR,
-		NODETP_NOT,
-
 		NODETP_ACCESS,	//	访问对象成员
-		NODETP_SHIF_ACCESS,	//访问列表元素
+	_NODETPSEC_BIN_END_,
+//以上是双目运算符
+
+		NODETP_NOT,
+		NODETP_SHIF_ACCESS,	//访问列表元素(其实这个也是双目运算符)
 
 	_NODETPSEC_CONTROL_SECTION_,
 
@@ -159,7 +162,7 @@ namespace Cirno{
 			//跳过空格
 			if(_slice[i] == ' ')
 			{
-				while(_slice[i] == ' ')
+				while(_slice[i] == ' ' && i < _slice.len)
 					i++;
 				continue;
 			}
@@ -285,6 +288,44 @@ namespace Cirno{
 				i += temp.len;
 				continue;
 			}
+			else if(_slice[i] == '\"')
+			{
+				
+				uint j{0};
+				for(;j+i<_slice.len;j++)
+				{
+					if(_slice[i+j] == '\\')
+						i++;
+					else if(_slice[i+j] == '\"')
+						break;
+				}
+				if(i+j == _slice.len)
+					throw"Exception from function \"icy_find_minlevel_token\": string lose double quotation mark\n";
+				temp.ptr = _slice.ptr + i;
+				temp.len = j+1;
+				if(0 >= level_value)
+				{
+					level_value = 0;
+					root_operation = temp;
+				}
+				i += temp.len;
+				continue;
+			}
+			else if(_slice[i] == '\'')
+			{
+				if(i+2 >= _slice.len || _slice[i+2] != '\'')
+					throw "Exception from function \"icy_find_minlevel_token\": too many letters between quotation marks or unfinished quotation mark\n";
+				temp.ptr = _slice.ptr + i;
+				temp.len = 3;
+				if(0 >= level_value)
+				{
+					level_value = 0;
+					root_operation = temp;
+				}
+				i += temp.len;
+				continue;
+
+			}
 			//处理[]
 			//怎样判断运算符左边已经有参数了呢？
 			/*
@@ -392,21 +433,21 @@ namespace Cirno{
 			if(!is_icy_keywd(_slice_operator))//如果不是关键字，那么就是一个对象名
 				node_type = _NODETPSEC_OBJECT_SEC_;
 		}
+		else if(_slice_operator[0] == '\"')
+			node_type = NODETP_CONST_OBJECT;
+		else if (_slice_operator[0] == '\'')
+			node_type = NODETP_CONST_OBJECT;
 		else
 			throw"Exception from function\"make_ast_node_via_strslice\": unknown type.";
 
 		if(node_type > _NODETPSEC_CONTROL_SECTION_)//如果是控制指令就多准备一些空间。
-		{
 			p_ret_astnode = new icyAstNode(8U);
-		}
 		else if(node_type == _NODETPSEC_OBJECT_SEC_)
-		{
 			p_ret_astnode = new icyAstNode(0u);
-		}
+		else if(node_type == NODETP_NOT)
+			p_ret_astnode = new icyAstNode(1u);
 		else
-		{
 			p_ret_astnode = new icyAstNode(2U);
-		}
 
 		p_ret_astnode->node_type = node_type;
 		return p_ret_astnode;

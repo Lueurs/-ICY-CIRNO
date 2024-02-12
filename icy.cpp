@@ -8,6 +8,9 @@ using ushort = unsigned short;
 using uint   = unsigned int;
 using byte   = char;
 
+using IcyInt   = int;
+using IcyFloat = double;
+using IcyChar =  wchar_t;
 //std::size_t _strslice_hash(StrSlice &_slicce);
 
 struct strslice_cmp
@@ -23,6 +26,12 @@ namespace Cirno{
 	{
 		OBJTP_NIL = 0,
 		OBJTP_FUNCTION,
+
+        OBJTP_INTEGER,
+        OBJTP_REALNUM,
+
+        OBJTP_CHAR,
+        OBJTP_STRING
 	
 	};
 
@@ -83,8 +92,8 @@ namespace Cirno{
         icyAstNode *current_node = make_ast_node_via_strslice(current_operator);    //根据当前操作符生成相应的节点
         uint        current_local_index;    //本地对象当前应该使用的索引值
         uint        current_mutual_index;   //共享对象当前应该使用的索引值
-
-
+        uint        current_const_index;    //常量当前应该使用的索引值
+        StrSlice param1,param2;
         //创建对象的指令节点不会被添加到抽象语法树中。相反，对象在编译阶段就被创建，创建对象的操作最终只产生一个对象引用节点。
         if(current_node->node_type == NODETP_CREATE_LOCAL_OBJ)  //如果是创建局部对象的指令
         {
@@ -113,7 +122,31 @@ namespace Cirno{
 
             return current_node;//返回这个对对象引用的节点
         }
+        //你怎么知道我这一段代码是上一段直接copy&paste过来再修改的
+        else if(current_node->node_type == NODETP_CREATE_MUTUAL_OBJ)  //如果是创建局部对象的指令
+        {
+            StrSlice object_name = jump_space(current_operator.ptr + 6);
+            while(object_name[object_name.len] != ' ' && object_name[object_name.len] != '\n' && object_name[object_name.len] != '=')
+                object_name.len++;
+            std::map<StrSlice,uint,strslice_cmp>::iterator it;
+            it = m_mutualobj_index_table.find(object_name); //全局找一下
+            if(it != m_mutualobj_index_table.end())
+                throw"Exception from function \"Cirno::IcyProcess::generate_ast\": multiple definition of an object(defined in mutual scope)";
+            it = m_current_localobj_index_table.find(object_name);//局部找一下
+            if(it != m_current_localobj_index_table.end())
+                throw"Exception from function \"Cirno::IcyProcess::generate_ast\": multiple definition of an object(defined in local scope)";
+            //将新对象插入表中
+            current_mutual_index = m_mutualobj_table.size();  //  
+            m_mutualobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(object_name,current_mutual_index));
+            m_mutualobj_table.push_back(IcyObject());
 
+            //我们不销毁current_node，而是直接改变它的属性。这样会更快吧
+            current_node->node_type = NODETP_MUTUAL_OBJECT;
+            current_node->source    = current_mutual_index;
+
+            return current_node;//返回这个对对象引用的节点
+        }
+        //对象类节点
         else if(current_node->node_type == _NODETPSEC_OBJECT_SEC_)
         {
         //下面在各个作用域查找这个对象
@@ -142,17 +175,49 @@ namespace Cirno{
             else//如果哪里都找不到定义，那么只好抛出错误了
                 throw"Exception from function \"Cirno::IcyProcess::generate_ast\": undefined identifier";          
         }
-
-        if(current_node->node_type == NODETP_SHIF_ACCESS)
+        //常量类节点，包括常量数字、字符和字符串
+        else if(current_node->node_type == NODETP_CONST_OBJECT)
         {
-            StrSlice param1,param2;
+            std::map<StrSlice,uint,strslice_cmp>::iterator it;
+            it = m_constobj_index_table.find(current_operator);
+            if(it == m_constobj_index_table.end())
+            {
+                IcyObject NewObject;
+                if(is_strslice_integer(current_operator))
+                {
+                    NewObject.type = OBJTP_INTEGER;
+                    NewObject.source_ptr = (byte*)(new IcyInt);
+                    *((IcyInt*)(NewObject.source_ptr)) = strslice_to_integer(current_operator);
+                }
+                else if(is_strslice_realnum(current_operator))
+                {
+                    NewObject.type = OBJTP_REALNUM;
+                    NewObject.source_ptr = (byte*)(new IcyFloat);
+                    *((IcyFloat*)(NewObject.source_ptr)) = strslice_to_realnum(current_operator);
+                }
+                else if(current_operator[0] == '\'')
+                {
+                    NewObject.type = OBJTP_CHAR;
+                    NewObject.source_ptr = (byte*)(new IcyChar);
+                    *((IcyChar*)(NewObject.source_ptr)) = (IcyChar)current_operator[1];
+                }
+                current_const_index = m_constobj_index_table.size();
+                m_constobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(current_operator,current_const_index));
+                m_constobj_table.push_back(NewObject);
+                current_node->source = current_const_index;
+            }
+            else
+            {
+                current_node->source = it->second;
+            }
+            return current_node;
 
+        }
+        else if(current_node->node_type == NODETP_SHIF_ACCESS)
+        {
             //获取第一个参数
             param1.ptr = _statement.ptr;
             param1.len = current_operator.ptr - _statement.ptr;
-            //arr[i+1]
-            //012345
-            //^ v ^
             //获取第二个参数
             param2.ptr = current_operator.ptr+1;
             char* end_pos = find_pair_sign(_statement.ptr,_statement.len - (current_operator.ptr - _statement.ptr));
@@ -166,6 +231,32 @@ namespace Cirno{
 
 
         }
+        //这里统一处理[]之外所有的双目运算符
+        else if(current_node->node_type > _NODETPSEC_BIN_BEGIN_ && current_node->node_type < _NODETPSEC_BIN_END_)
+        {
+            param1.ptr = _statement.ptr;
+            param1.len = current_operator.ptr - _statement.ptr;
+
+            param2.ptr = current_operator.ptr + current_operator.len;
+            param2.len = _statement.ptr + _statement.len - current_operator.ptr -1;
+
+            auto sub_node1 = generate_ast(param1,_pfunction_context);
+            auto sub_node2 = generate_ast(param2,_pfunction_context);
+            current_node->sub_nodes.push_back(sub_node1);
+            current_node->sub_nodes.push_back(sub_node2);
+            return current_node;
+        }
+        else if(current_node->node_type == NODETP_NOT)
+        {
+            // ! success
+            //0123456789
+            param1.ptr = current_operator.ptr + 1;
+            param1.len = _statement.ptr + _statement.len - current_operator.ptr - 1;
+            auto sub_node = generate_ast(param1,_pfunction_context);
+            current_node->sub_nodes.push_back(sub_node);
+            return current_node;
+        }
+
 
 
     }

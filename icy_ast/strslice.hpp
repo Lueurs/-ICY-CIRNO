@@ -87,3 +87,9 @@ bool is_range_contain(T *_begin, T *_end, T _targ)
 			return true;
 	return false;
 }			
+
+StrSlice fetch_icystr(char *_begin,uint _range);
+
+int strslice_to_integer(StrSlice _slice);//[!]
+
+double strslice_to_realnum(StrSlice _slice);//[?]

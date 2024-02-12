@@ -103,7 +103,8 @@ int main()
         }
 */
         try{
-            print_functon_msg(slice);
+            //print_functon_msg(slice);
+            cout << strslice_to_integer(slice) <<'\n';
         }
 
         catch(const char* _msg)

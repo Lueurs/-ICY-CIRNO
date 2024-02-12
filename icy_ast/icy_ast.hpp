@@ -19,7 +19,8 @@ namespace Cirno{
 		NODETP_MUTUAL_OBJECT,
 		NODETP_CONST_OBJECT,
 
-
+//以下是双目运算符
+	_NODETPSEC_BIN_BEGIN_,
 		NODETP_MOV,
 
 		NODETP_CALL,
@@ -38,9 +39,13 @@ namespace Cirno{
 
 		NODETP_AND,
 		NODETP_OR,
+		NODETP_ACCESS,	//	访问对象成员
+	_NODETPSEC_BIN_END_,
+//以上是双目运算符
+
 		NODETP_NOT,
 
-		NODETP_ACCESS,	//	访问对象成员
+
 		NODETP_SHIF_ACCESS,	//访问列表元素
 
 	_NODETPSEC_CONTROL_SECTION_,
@@ -59,7 +64,7 @@ namespace Cirno{
 		icy_nodetype_t            node_type;		//该节点的类型
 		uint                      source;			//该节点的资源编号
 
-		icyAstNode(uint _num_subnodes = 3U);		//默认给三个子节点预留了空间
+		icyAstNode(uint _num_subnodes = 3u);		//默认给三个子节点预留了空间
 
 	};
 

@@ -1,6 +1,8 @@
-
+#include<math.h>
 #include"icydebug.hpp"
 //#define DEBUG 114514
+
+
 
 #ifdef DEBUG
 #include<iostream>
@@ -357,5 +359,41 @@ void decorticate_strslice(StrSlice &_slice)
 		_slice.ptr++;
 		_slice.len -= 2;
 	}
+	
+}
+
+StrSlice fetch_icystr(char *_begin,uint _range)
+{
+	char end_sign = *_begin;//如果是双引号就用双引号结尾，如果是单引号就用单引号结尾
+	
+}
+
+int strslice_to_integer(StrSlice _slice)
+{
+	int result{0};
+	for(int i = _slice.len-1; i >= 0; i--)
+		result += (_slice[i] - '0') * pow(10, _slice.len-i-1);
+	return result;
+}
+
+double strslice_to_realnum(StrSlice _slice)
+{
+	double level{.0f};
+	uint i{0};
+	for(; i<_slice.len; i++)
+		if(_slice[i] == '.')
+			break;
+	//3.14159
+	//6543210
+	level = pow(10,_slice.len-i-1);
+	
+	double big_value{.0};
+	double small_value{.0};
+	for(int j = i-1;j>=0;j--)
+		big_value += (_slice[j] - '0') * pow(10,(i-1)-j);
+	for(int j = _slice.len-1;j>i;j--)
+		small_value += (_slice[j]-'0') * pow(10,_slice.len - j - 1);
+	small_value /= level;
+	return big_value + small_value;
 	
 }

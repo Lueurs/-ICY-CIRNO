@@ -10,11 +10,20 @@ using ushort = unsigned short;
 using uint   = unsigned int;
 using byte   = char;
 
+using IcyInt   = int;
+using IcyFloat = double;
+
 namespace Cirno{
 	enum icyobj_t
 	{
 		OBJTP_NIL = 0,
 		OBJTP_FUNCTION,
+
+        OBJTP_INTEGER,
+        OBJTP_REALNUM,
+
+        OBJTP_CHAR,
+        OBJTP_STRING
 	
 	};
 

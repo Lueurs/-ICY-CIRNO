@@ -13,8 +13,8 @@ using byte   = char;
 namespace Cirno{
 	enum icyobj_t
 	{
-		NIL = 0,
-		FUNCTION,
+		OBJTP_NIL = 0,
+		OBJTP_FUNCTION,
 	
 	};
 
@@ -22,19 +22,21 @@ namespace Cirno{
 	{		
 		uint  type;
 		byte* source_ptr;
+		IcyObject(uint _type = OBJTP_NIL,byte *_source);
+		~IcyObject();
 	};
 
 
 	using icyFuncParamStruct = std::vector<IcyObject>; //icyFunction 对象中保存函数参数的数据结构，我们暂且用std::vector吧
 
 	//CIRNO的函数
-	class IcyFunction
+	struct IcyFunction
 	{
 		icyFuncParamStruct m_param_table;
 		IcyObject          m_ret_value;
 
 	};
-	class IcyThread
+	struct IcyThread
 	{
 
 	};

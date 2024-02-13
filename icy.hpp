@@ -10,8 +10,7 @@ using ushort = unsigned short;
 using uint   = unsigned int;
 using byte   = char;
 
-using IcyInt   = int;
-using IcyFloat = double;
+
 
 namespace Cirno{
 	enum icyobj_t
@@ -27,11 +26,14 @@ namespace Cirno{
 	
 	};
 
+	using IcyInt   = int;
+	using IcyFloat = double;
+
 	struct IcyObject
 	{		
-		uint  type;
-		byte* source_ptr;
-		IcyObject(uint _type = OBJTP_NIL,byte *_source);
+		icyobj_t  type;
+		byte*     source_ptr;
+		IcyObject(icyobj_t _type = OBJTP_NIL,byte *_source);
 		~IcyObject();
 		void operator = (IcyObject &_icyobj);
 	};
@@ -54,10 +56,10 @@ namespace Cirno{
 	class IcyProcess
 	{
 	protected:
-		icyAstNode *generate_ast(StrSlice _statement,icyAstNode *_root);
-        IcyObject  *solve_const_expr(StrSlice _statement);	//此函数用于解决编译期常表达式(直接把表达式的值算出来)
+		icyAstNode  *generate_ast(StrSlice _statement,icyAstNode *_root); ///生成ast
+		IcyObject	execute_ast(icyAstNode* _root,IcyThread &_thread_context,IcyFunction &_func_context);	//执行ast
+        IcyObject   *solve_const_expr(StrSlice _statement);	//此函数用于解决编译期常表达式(直接把表达式的值算出来)
         IcyFunction *make_function(StrSlice _statement);
-
 	private:
 		std::unordered_map<StrSlice,uint>	m_mutualobj_index_table;	//共享对象的索引表
 		std::vector<char*>					m_mutualobj_table;			//共享对象的地址表

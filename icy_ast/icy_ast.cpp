@@ -37,7 +37,7 @@ namespace Cirno{
 		NODETP_CALL,
 
 		NODETP_ADD,
-		NODETP_MINUS,
+		NODETP_SUB,
 		NODETP_MUL,
 		NODETP_DIV,
 		NODETP_POW,
@@ -387,7 +387,7 @@ namespace Cirno{
 		else if(_slice_operator == "+")
 			node_type = NODETP_ADD;
 		else if(_slice_operator == "-")
-			node_type = NODETP_MINUS;
+			node_type = NODETP_SUB;
 		else if(_slice_operator == "*")
 			node_type = NODETP_MUL;
 		else if(_slice_operator == "/")

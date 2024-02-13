@@ -49,7 +49,7 @@ void print_functon_msg(StrSlice _code)
         uint num_params{0};//参数的数量
         for(i=0; param_begin_pos + i != bracket_end; i++)//i在这里被重置了
         {
-            if(param_begin_pos[i] == ',')
+            if(param_begin_pos[i] == ',' || param_begin_pos[i] == ')')
             {
 
                 cout << "parameter " << num_params+1 << ':';
@@ -70,13 +70,15 @@ void print_functon_msg(StrSlice _code)
                 continue;       //进入下一轮循环
                 
             }
-            param_name.len++;
+            param_name.len++;//如果没到结束的位置那就一直往下读取
             
         }
         cout << "parameter " << num_params+1 << ':';
+        print_strslice(param_name);
         //下面对参数的初始化列表进行读取
         char *initialize_list_begin = bracket_end + 1;
         char *pvalue_str{nullptr};
+        StrSlice initial_expr;
         while(initialize_list_begin != _code.ptr + _code.len && *initialize_list_begin != '{')
         {
             if(*initialize_list_begin == ':')
@@ -86,6 +88,7 @@ void print_functon_msg(StrSlice _code)
         param_begin_pos = jump_space_et_linefd(initialize_list_begin + 1);
         while(*param_begin_pos != '{' && *param_begin_pos != ';')
         {
+            initial_expr.len = 0;//重置长度，以免受到上一次循环的影响
             param_name.ptr = param_begin_pos;
             param_name.len = 0;
             while(*param_begin_pos != ' ' && *param_begin_pos != '(')
@@ -96,12 +99,29 @@ void print_functon_msg(StrSlice _code)
             cout << "initialized parameter:";
             print_strslice(param_name);
             param_begin_pos = jump_space(param_begin_pos);//运行到这一步，param_begin_pos指向的字符必然是左括号(
+            char *bracket_end = find_pair_sign(param_begin_pos);//懒得限定查找长度了。出问题了都是编写代码者的错
 
             char* &pvalue_str = param_begin_pos;//这里是一个引用，其实还是param_begin_pos，只不过我现在想用它读取值，所以换个名字
             pvalue_str++;//走到括号之后
             pvalue_str = jump_space(pvalue_str);
-            
-            
+            initial_expr.ptr = pvalue_str;  //此时initial_expr的指针指向初始化表达式的首个字符
+            while(pvalue_str != bracket_end)
+            {
+                pvalue_str++;
+                initial_expr.len++;
+            }
+            cout << "value:";
+            print_strslice(initial_expr);
+
+            param_begin_pos++;  
+            param_begin_pos = jump_space(param_begin_pos);//跳过左括号后可能存在的空格
+            while(*param_begin_pos != ',' && *param_begin_pos != '{')
+                param_begin_pos++;
+            if(*param_begin_pos == ',')
+            {
+                param_begin_pos++;//走到comma之后
+                param_begin_pos = jump_space_et_linefd(param_begin_pos);//不同的初始化表达式之间允许用换行隔开
+            }
             
         }
 
@@ -115,13 +135,14 @@ void print_functon_msg(StrSlice _code)
 int main()
 {
     StrSlice slice;
-    char buff[64];
+    char buff[256];
 
     char* pos{nullptr};
 
     while(!compair_strslice_with_cstr(slice,"quit"))
     {
-        cin.getline(buff,63);
+        cout << "输入:";
+        cin.getline(buff,255);
 
         pos = jump_space(buff);
 
@@ -138,6 +159,7 @@ int main()
         slice = Cirno::icy_find_minlevel_token(slice);
         }
 */
+        cout << "输出:\n";
         try{
             print_functon_msg(slice);
             //cout << strslice_to_integer(slice) <<'\n';

@@ -10,9 +10,9 @@ using ushort = unsigned short;
 using uint   = unsigned int;
 using byte   = char;
 
-using IcyInt   = int;
-using IcyFloat = double;
-using IcyChar =  wchar_t;
+
+
+
 //std::size_t _strslice_hash(StrSlice &_slicce);
 
 struct strslice_cmp
@@ -25,37 +25,9 @@ struct strslice_cmp
 
 //012345678
 //^   ^
-void push_icyint(Stack &_stack,IcyInt _value)
-{
-    if(STACK_MAXSIZE - (_stack.top-_stack.base) < sizeof(IcyInt))
-        throw"Exception from \"push_icyint\": no enough space to push in data.\n";
-    *((IcyInt*)(_stack.top)) = _value;
-    _stack.top += sizeof(IcyInt); 
-}
 
-void push_icyfloat(Stack &_stack,IcyFloat _value)
-{
-    if(STACK_MAXSIZE - (_stack.top-_stack.base) < sizeof(IcyFloat))
-        throw"Exception from \"push_icyflooat\": no enough space to push in data.\n";
-    *((IcyFloat*)(_stack.top)) = _value;
-    _stack.top += sizeof(IcyFloat); 
-}
 
-IcyInt pop_icyint(Stack& _stack)
-{
-    if(_stack.top - _stack.base < sizeof(IcyInt))
-        throw"Exception from \"pop_icyint\": no more data to pop.\n";
-    _stack.top -= sizeof(IcyInt);
-    return *((IcyInt*)_stack.top);
-}
 
-IcyFloat pop_icyfloat(Stack& _stack)
-{
-    if(_stack.top - _stack.base < sizeof(IcyFloat))
-        throw"Exception from \"pop_icyint\": no more data to pop.\n";
-    _stack.top -= sizeof(IcyFloat);
-    return *((IcyFloat*)_stack.top);
-}
 
 namespace Cirno{
 	enum icyobj_t
@@ -71,15 +43,172 @@ namespace Cirno{
 	
 	};
 
+    using IcyInt   = int;
+    using IcyFloat = double;
+    using IcyChar  =  wchar_t;
+
+    typedef int IcyInt;
+
+    void push_icyint(Stack &_stack,IcyInt _value)
+    {
+        if(STACK_MAXSIZE - (_stack.top-_stack.base) < sizeof(IcyInt)+sizeof(icyobj_t))
+            throw"Exception from \"push_icyint\": no enough space to push in data.\n";
+        *((IcyInt*)(_stack.top)) = _value;
+        _stack.top += sizeof(IcyInt); 
+        *((icyobj_t*)_stack.top) = OBJTP_INTEGER;
+        _stack.top += sizeof(icyobj_t);
+    }
+
+    void push_icyfloat(Stack &_stack,IcyFloat _value)
+    {
+        if(STACK_MAXSIZE - (_stack.top-_stack.base) < sizeof(IcyFloat)+sizeof(icyobj_t))
+            throw"Exception from \"push_icyflooat\": no enough space to push in data.\n";
+        *((IcyFloat*)(_stack.top)) = _value;
+        _stack.top += sizeof(IcyFloat);
+        *((icyobj_t*)_stack.top) = OBJTP_REALNUM;
+        _stack.top += sizeof(icyobj_t); 
+    }
+
+    icyobj_t pop_objt(Stack &_stack)
+    {
+        if(_stack.top - _stack.base < sizeof(icyobj_t))
+            throw"Exception from \"pop_icyint\": no more data to pop.\n";
+        _stack.top -= sizeof(icyobj_t);
+        return *((icyobj_t*)_stack.top);        
+    }
+
+    IcyInt pop_icyint(Stack& _stack)
+    {
+        if(_stack.top - _stack.base < sizeof(IcyInt))
+            throw"Exception from \"pop_icyint\": no more data to pop.\n";
+        _stack.top -= sizeof(IcyInt);
+        return *((IcyInt*)_stack.top);
+    }
+
+    IcyFloat pop_icyfloat(Stack& _stack)
+    {
+        if(_stack.top - _stack.base < sizeof(IcyFloat))
+            throw"Exception from \"pop_icyint\": no more data to pop.\n";
+        _stack.top -= sizeof(IcyFloat);
+        return *((IcyFloat*)_stack.top);
+    }
+
+/////////////////////////////////////
+//以下是真正执行抽象语法树节点相应的任务的函数
+//////////////////////////////////////
+
+    void trans_to_integer(Stack &_stack)//类型转换操作
+    {
+        IcyInt value{0};
+        icyobj_t type = pop_objt(_stack);//将数据类型标识出栈
+        switch(type)
+        {
+            case OBJTP_INTEGER:
+                value = pop_icyint(_stack);
+                break;
+            case OBJTP_REALNUM:
+                value = (IcyInt)pop_icyfloat(_stack);
+                break;
+            //其他需要被转换的类型在这下面追加...
+        }
+        push_icyint(_stack,value);         //将转化结果入栈
+
+    }
+
+    void icy_operator_add(Stack &_stack)    //加法操作
+    {
+        icyobj_t type_1 = pop_objt(_stack); //将第二个参数的数据类型标识出栈
+        icyobj_t type_2;
+        if(type_1 == OBJTP_INTEGER)         //检测数据类型——如果是整数
+        {
+            IcyInt value_1 = pop_icyint(_stack);  //出栈整数
+            type_2 = pop_objt(_stack);      //出栈第一个参数的类型
+            if(type_2 != OBJTP_INTEGER)     //如果两个参数类型不同则报错
+                throw"Exception from execute_ast/operator + : astnode return type mismatching.\n";
+            IcyInt value_2 = pop_icyint(_stack);
+            push_icyint(_stack,value_1 + value_2);  //将运算结果压入栈
+        }
+        else if(type_1 == OBJTP_REALNUM)
+        {
+            IcyFloat value_1 = pop_icyfloat(_stack);
+            type_2 = pop_objt(_stack);
+            if(type_2 != OBJTP_REALNUM)
+                throw"Exception from execute_ast/operator + : astnode return type mismatching.\n";
+            IcyFloat value_2 = pop_icyfloat(_stack);
+            push_icyfloat(_stack,value_1 + value_2);
+        }
+        else
+            throw "Error:data type currently does not support addition operation.\n";//其他数据类型暂时不支持加法操作
+    }
+
+    void icy_operator_sub(Stack &_stack)    //加法操作
+    {
+        icyobj_t type_1 = pop_objt(_stack); //将第二个参数的数据类型标识出栈
+        icyobj_t type_2;
+        if(type_1 == OBJTP_INTEGER)         //检测数据类型——如果是整数
+        {
+            IcyInt value_1 = pop_icyint(_stack);  //出栈整数
+            type_2 = pop_objt(_stack);      //出栈第一个参数的类型
+            if(type_2 != OBJTP_INTEGER)     //如果两个参数类型不同则报错
+                throw"Exception from execute_ast/operator + : astnode return type mismatching.\n";
+            IcyInt value_2 = pop_icyint(_stack);
+            push_icyint(_stack,value_2 - value_1);  //将运算结果压入栈
+        }
+        else if(type_1 == OBJTP_REALNUM)
+        {
+            IcyFloat value_1 = pop_icyfloat(_stack);
+            type_2 = pop_objt(_stack);
+            if(type_2 != OBJTP_REALNUM)
+                throw"Exception from execute_ast/operator + : astnode return type mismatching.\n";
+            IcyFloat value_2 = pop_icyfloat(_stack);
+            push_icyfloat(_stack,value_2 - value_1);
+        }
+        else
+            throw "Error:data type currently does not support subtraction operation.\n";
+    }
+
+    void icy_operator_mul(Stack &_stack)    //加法操作
+    {
+        icyobj_t type_1 = pop_objt(_stack); //将第二个参数的数据类型标识出栈
+        icyobj_t type_2;
+        if(type_1 == OBJTP_INTEGER)         //检测数据类型——如果是整数
+        {
+            IcyInt value_1 = pop_icyint(_stack);  //出栈整数
+            type_2 = pop_objt(_stack);      //出栈第一个参数的类型
+            if(type_2 != OBJTP_INTEGER)     //如果两个参数类型不同则报错
+                throw"Exception from execute_ast/operator + : astnode return type mismatching.\n";
+            IcyInt value_2 = pop_icyint(_stack);
+            push_icyint(_stack,value_1 * value_2);  //将运算结果压入栈
+        }
+        else if(type_1 == OBJTP_REALNUM)
+        {
+            IcyFloat value_1 = pop_icyfloat(_stack);
+            type_2 = pop_objt(_stack);
+            if(type_2 != OBJTP_REALNUM)
+                throw"Exception from execute_ast/operator + : astnode return type mismatching.\n";
+            IcyFloat value_2 = pop_icyfloat(_stack);
+            push_icyfloat(_stack,value_1 * value_2);
+        }
+        else
+            throw "Error:data type currently does not support multiplication operation.\n";
+    }  
+
+
+
+
+
+//////////////////////////////////////
+//以上是真正执行抽象语法树节点相应的任务的函数
+//////////////////////////////////////
 	struct IcyObject
 	{		
-		uint  type;
-		byte* source_ptr;
-        IcyObject(uint _type = OBJTP_NIL,byte *_source = nullptr);
+		icyobj_t  type;
+		byte*     source_ptr;
+        IcyObject(icyobj_t _type = OBJTP_NIL,byte *_source = nullptr);
         ~IcyObject();
         void operator = (IcyObject &_icyobj);
 	};
-    IcyObject::IcyObject(uint _type = OBJTP_NIL,byte *_source = nullptr)//注意！IcyObject在被创建后不是随机值，而是默认的空值
+    IcyObject::IcyObject(icyobj_t _type = OBJTP_NIL,byte *_source = nullptr)//注意！IcyObject在被创建后不是随机值，而是默认的空值
         :type(_type),source_ptr(_source){}
     IcyObject::~IcyObject()
     {
@@ -156,7 +285,7 @@ namespace Cirno{
         
     }
 
-
+    
 
 	//CIRNO的函数
 	struct IcyFunction
@@ -177,9 +306,11 @@ namespace Cirno{
         
 	protected:
 		icyAstNode *generate_ast(StrSlice _statement,IcyFunction *_pfunction_context);//第四个参数主要是提供上下文信息。
-        
-        IcyObject  *solve_const_expr(StrSlice _statement);
+		IcyObject	execute_ast(icyAstNode* _root,IcyThread &_thread_context,IcyFunction &_func_context);        
+        IcyObject   solve_const_expr(StrSlice _statement);
         IcyFunction *make_function(StrSlice _statement);
+
+
 	private:
         //所有的函数也是对象，当完成一个make_function之后make_function的信息也会被存入下面两个表中
 		std::map<StrSlice,uint,strslice_cmp>     m_mutualobj_index_table;	//共享对象的索引表
@@ -352,7 +483,26 @@ namespace Cirno{
 
 
     }
+    void execute_ast(icyAstNode* _root,IcyThread &_thread_context,IcyFunction &_func_context)
+    {
+        if(_root->node_type == NODETP_LOCAL_OBJECT)
+        {
+            icyobj_t object_type = _func_context.m_localobj_table[_root->source].type;
+            switch(object_type)
+            {
+                case OBJTP_INTEGER:
+                    IcyInt value = *((IcyInt*)_func_context.m_localobj_table[_root->source].source_ptr);    //从相应地址读取数据
+                    push_icyint(_thread_context.local_swap_stack,value);                                    //将数据入栈
+                    break;
+                case OBJTP_REALNUM:
+                    IcyFloat value = *((IcyFloat*)_func_context.m_localobj_table[_root->source].source_ptr);
+                    push_icyfloat(_thread_context.local_swap_stack,value);
+                    break;
+                //之后在这里添加其他类型
+            }
 
+        }
+    }
 
 /*
 func myfunc ( 
@@ -471,12 +621,30 @@ func myfunc (
 
     
 
-    IcyObject *IcyProcess::solve_const_expr(StrSlice _statement)
+    IcyObject IcyProcess::solve_const_expr(StrSlice _statement)
     {
+        IcyObject result;
         icyAstNode *pRootNode = generate_ast(_statement,nullptr);//第二个参数是空指针，因为被计算的全部是常量，不需参考函数上下文
         if(!is_ast_const_expr(pRootNode))//如果不是常量表达式，那么抛出错误
             throw"Exception from \"Cirno::IcyProcess::solve_const_expr\": initial value should be a constant expression.\n";
-        
+        IcyThread temp_thread_context;      //由于执行抽象语法树需要一个线程环境，所以临时创建一个来用
+        IcyFunction temp_function_context;  //同上
+        execute_ast(pRootNode,temp_thread_context,temp_function_context);   //执行抽象语法树
+        icyobj_t value_type = pop_objt(temp_thread_context.local_swap_stack);//刚才我把这个临时的线程环境对象扔给execute_ast用了，execute_ast残留的返回值还在这个线程环境对象的栈里面
+        switch(value_type)//根据返回的类型取出具体的返回值
+        {
+            case OBJTP_INTEGER:
+                result.source_ptr = (byte*)(new IcyInt);
+                *((IcyInt*)result.source_ptr) = pop_icyint(temp_thread_context.local_swap_stack);
+                break;
+            case OBJTP_REALNUM:
+                result.source_ptr = (byte*)(new IcyFloat);
+                *((IcyFloat*)result.source_ptr) = pop_icyfloat(temp_thread_context.local_swap_stack);
+                break;
+            default://遇到我还没做的数据类型就直接抛出错误
+                throw"Exception from Cirno::IcyProcess::solve_const_expr: currently unsupported data type.\n";
+        }
+        return result;
     }
 
 

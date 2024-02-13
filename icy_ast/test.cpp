@@ -7,6 +7,7 @@ void print_strslice(StrSlice _slice)
 {
     for(uint i=0;i<_slice.len;i++)
         cout.put(_slice[i]);
+    //cout.put(';');
     cout.put('\n');
 }
 
@@ -27,8 +28,8 @@ void print_functon_msg(StrSlice _code)
                 break;
         function_name.len = i;
         //至此完成了对函数名称的收集
-        if(!icy_naming_check(function_name))
-            throw"Exception from function\"Cirno::IcyProcess::make_function\":illegal function name";
+        //if(!icy_naming_check(function_name))
+        //    throw"Exception from function\"Cirno::IcyProcess::make_function\":illegal function name";
         
         cout << "Function name:";
         print_strslice(function_name);
@@ -51,7 +52,7 @@ void print_functon_msg(StrSlice _code)
             if(param_begin_pos[i] == ',')
             {
 
-                cout << "parameter " << num_params << ':';
+                cout << "parameter " << num_params+1 << ':';
                 print_strslice(param_name);
 
                 if(!icy_naming_check(param_name))//如果该参数名不合法则抛出错误
@@ -72,8 +73,43 @@ void print_functon_msg(StrSlice _code)
             param_name.len++;
             
         }
-        cout << "parameter " << num_params << ':';
-        print_strslice(param_name);
+        cout << "parameter " << num_params+1 << ':';
+        //下面对参数的初始化列表进行读取
+        char *initialize_list_begin = bracket_end + 1;
+        char *pvalue_str{nullptr};
+        while(initialize_list_begin != _code.ptr + _code.len && *initialize_list_begin != '{')
+        {
+            if(*initialize_list_begin == ':')
+                break;
+            initialize_list_begin++;
+        }
+        param_begin_pos = jump_space_et_linefd(initialize_list_begin + 1);
+        while(*param_begin_pos != '{' && *param_begin_pos != ';')
+        {
+            param_name.ptr = param_begin_pos;
+            param_name.len = 0;
+            while(*param_begin_pos != ' ' && *param_begin_pos != '(')
+            {
+                param_begin_pos++;
+                param_name.len++;
+            }
+            cout << "initialized parameter:";
+            print_strslice(param_name);
+            param_begin_pos = jump_space(param_begin_pos);//运行到这一步，param_begin_pos指向的字符必然是左括号(
+
+            char* &pvalue_str = param_begin_pos;//这里是一个引用，其实还是param_begin_pos，只不过我现在想用它读取值，所以换个名字
+            pvalue_str++;//走到括号之后
+            pvalue_str = jump_space(pvalue_str);
+            
+            
+            
+        }
+
+        
+
+        //if(!icy_naming_check(param_name))
+          //  throw"Exception from function\"Cirno::IcyProcess::make_function\": illegal indentifier.\n";
+
 }
 
 int main()
@@ -103,8 +139,8 @@ int main()
         }
 */
         try{
-            //print_functon_msg(slice);
-            cout << strslice_to_integer(slice) <<'\n';
+            print_functon_msg(slice);
+            //cout << strslice_to_integer(slice) <<'\n';
         }
 
         catch(const char* _msg)

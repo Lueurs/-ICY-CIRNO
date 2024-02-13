@@ -454,6 +454,18 @@ namespace Cirno{
 
 	}
 
+	bool is_ast_const_expr(icyAstNode* _root)
+	{
+		if(!_root)
+			return true;
+		if(_root->node_type == NODETP_MUTUAL_OBJECT || _root->node_type == NODETP_LOCAL_OBJECT)
+			return false;
+		for(auto node:_root->sub_nodes)
+			if(!is_ast_const_expr(node))
+				return false;
+		return true;		
+	}
+
 
 }
 

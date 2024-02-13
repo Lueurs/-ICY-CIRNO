@@ -33,8 +33,10 @@ namespace Cirno{
 		byte* source_ptr;
 		IcyObject(uint _type = OBJTP_NIL,byte *_source);
 		~IcyObject();
+		void operator = (IcyObject &_icyobj);
 	};
 
+	IcyObject read_icy_constant_val(StrSlice _statement);	//	读取一段字符，转化为相应的icy常量对象
 
 	using icyFuncParamStruct = std::vector<IcyObject>; //icyFunction 对象中保存函数参数的数据结构，我们暂且用std::vector吧
 
@@ -53,6 +55,9 @@ namespace Cirno{
 	{
 	protected:
 		icyAstNode *generate_ast(StrSlice _statement,icyAstNode *_root);
+        IcyObject  *solve_const_expr(StrSlice _statement);	//此函数用于解决编译期常表达式(直接把表达式的值算出来)
+        IcyFunction *make_function(StrSlice _statement);
+
 	private:
 		std::unordered_map<StrSlice,uint>	m_mutualobj_index_table;	//共享对象的索引表
 		std::vector<char*>					m_mutualobj_table;			//共享对象的地址表

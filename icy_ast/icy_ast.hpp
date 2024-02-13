@@ -103,6 +103,7 @@ namespace Cirno{
 
 	icyAstNode *make_ast_node_via_strslice(StrSlice _slice_operator);	//根据指令的字符来生成一个相应的icy抽象语法树节点
 
+	bool is_ast_const_expr(icyAstNode* _root);	//检查一个语法树是否是常量表达式
 
 
 }

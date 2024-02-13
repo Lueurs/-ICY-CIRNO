@@ -2,6 +2,8 @@
 #include<map>
 #include<unordered_map>
 #include"icy_ast/icy_ast.hpp"
+#include"stack.hpp"
+
 
 
 using ushort = unsigned short;
@@ -20,6 +22,40 @@ struct strslice_cmp
         return sliceA == sliceB;
     }
 };
+
+//012345678
+//^   ^
+void push_icyint(Stack &_stack,IcyInt _value)
+{
+    if(STACK_MAXSIZE - (_stack.top-_stack.base) < sizeof(IcyInt))
+        throw"Exception from \"push_icyint\": no enough space to push in data.\n";
+    *((IcyInt*)(_stack.top)) = _value;
+    _stack.top += sizeof(IcyInt); 
+}
+
+void push_icyfloat(Stack &_stack,IcyFloat _value)
+{
+    if(STACK_MAXSIZE - (_stack.top-_stack.base) < sizeof(IcyFloat))
+        throw"Exception from \"push_icyflooat\": no enough space to push in data.\n";
+    *((IcyFloat*)(_stack.top)) = _value;
+    _stack.top += sizeof(IcyFloat); 
+}
+
+IcyInt pop_icyint(Stack& _stack)
+{
+    if(_stack.top - _stack.base < sizeof(IcyInt))
+        throw"Exception from \"pop_icyint\": no more data to pop.\n";
+    _stack.top -= sizeof(IcyInt);
+    return *((IcyInt*)_stack.top);
+}
+
+IcyFloat pop_icyfloat(Stack& _stack)
+{
+    if(_stack.top - _stack.base < sizeof(IcyFloat))
+        throw"Exception from \"pop_icyint\": no more data to pop.\n";
+    _stack.top -= sizeof(IcyFloat);
+    return *((IcyFloat*)_stack.top);
+}
 
 namespace Cirno{
 	enum icyobj_t
@@ -41,13 +77,83 @@ namespace Cirno{
 		byte* source_ptr;
         IcyObject(uint _type = OBJTP_NIL,byte *_source = nullptr);
         ~IcyObject();
+        void operator = (IcyObject &_icyobj);
 	};
-    IcyObject::IcyObject(uint _type = OBJTP_NIL,byte *_source = nullptr)
+    IcyObject::IcyObject(uint _type = OBJTP_NIL,byte *_source = nullptr)//注意！IcyObject在被创建后不是随机值，而是默认的空值
         :type(_type),source_ptr(_source){}
     IcyObject::~IcyObject()
     {
         if(source_ptr)
-            delete[] source_ptr;//这里日后要改一下，具体怎么释放内存
+            switch(type)
+            {
+                case OBJTP_INTEGER:
+                    delete (IcyInt*)(source_ptr);
+                    break;
+                case OBJTP_REALNUM:
+                    delete (IcyFloat*)(source_ptr);
+                    break;
+                default:
+                    throw"（未完成的数据类型）前面的区域，以后再来探索吧！\n";
+            }
+
+    }
+    void IcyObject::operator=(IcyObject &_icyobj)
+    {
+        //清除原有的数据
+        if(source_ptr)
+            switch(type)
+            {
+                case OBJTP_INTEGER:
+                    delete (IcyInt*)(source_ptr);
+                    break;
+                case OBJTP_REALNUM:
+                    delete (IcyFloat*)(source_ptr);
+                    break;
+                default:
+                    throw"（未完成的数据类型）前面的区域，以后再来探索吧！\n";
+            }
+        //拷贝类型
+        type = _icyobj.type;
+        //深拷贝数据
+        switch(type)
+        {
+            case OBJTP_NIL:
+                break;
+            case OBJTP_INTEGER:
+                source_ptr = (byte*)(new IcyInt);
+                *((IcyInt*)(source_ptr)) = *((IcyInt*)(_icyobj.source_ptr));
+                break;
+            case OBJTP_REALNUM:
+                source_ptr = (byte*)(new IcyFloat);
+                *((IcyFloat*)(source_ptr)) = *((IcyFloat*)(_icyobj.source_ptr));
+                break;
+            default:
+                throw"（未完成的数据类型）前面的区域，以后再来探索吧！\n";
+
+        }
+    }
+
+    IcyObject read_icy_constant_val(StrSlice _statement)
+    {
+        IcyObject ret_obj;
+        if(_statement.len == 0)
+            return ret_obj;     //如果这里没有代码，直接返回空的对象引用
+        else if(is_strslice_integer(_statement))
+        {
+            ret_obj.type = OBJTP_INTEGER;
+            ret_obj.source_ptr = (byte*)(new IcyInt);
+            *((IcyInt*)(ret_obj.source_ptr)) = strslice_to_integer(_statement);
+        }
+        else if(is_strslice_realnum(_statement))
+        {
+            ret_obj.type = OBJTP_REALNUM;
+            ret_obj.source_ptr = (byte*)(new IcyInt);
+            *((IcyInt*)(ret_obj.source_ptr)) = strslice_to_integer(_statement);
+        }
+        else
+            throw"（未完成的数据类型）前面的区域，以后再来探索吧。\n";
+        return ret_obj;
+        
     }
 
 
@@ -62,7 +168,8 @@ namespace Cirno{
 	};
 	struct IcyThread
 	{
-
+        Stack       local_swap_stack;     //本线程使用的用于交换数据的栈
+        IcyFunction main_function;        //本线程的主函数
 	};
 	class IcyProcess
 	{
@@ -70,6 +177,8 @@ namespace Cirno{
         
 	protected:
 		icyAstNode *generate_ast(StrSlice _statement,IcyFunction *_pfunction_context);//第四个参数主要是提供上下文信息。
+        
+        IcyObject  *solve_const_expr(StrSlice _statement);
         IcyFunction *make_function(StrSlice _statement);
 	private:
         //所有的函数也是对象，当完成一个make_function之后make_function的信息也会被存入下面两个表中
@@ -93,7 +202,7 @@ namespace Cirno{
         uint        current_local_index;    //本地对象当前应该使用的索引值
         uint        current_mutual_index;   //共享对象当前应该使用的索引值
         uint        current_const_index;    //常量当前应该使用的索引值
-        StrSlice param1,param2;
+        StrSlice    param1,param2;
         //创建对象的指令节点不会被添加到抽象语法树中。相反，对象在编译阶段就被创建，创建对象的操作最终只产生一个对象引用节点。
         if(current_node->node_type == NODETP_CREATE_LOCAL_OBJ)  //如果是创建局部对象的指令
         {
@@ -182,28 +291,9 @@ namespace Cirno{
             it = m_constobj_index_table.find(current_operator);
             if(it == m_constobj_index_table.end())
             {
-                IcyObject NewObject;
-                if(is_strslice_integer(current_operator))
-                {
-                    NewObject.type = OBJTP_INTEGER;
-                    NewObject.source_ptr = (byte*)(new IcyInt);
-                    *((IcyInt*)(NewObject.source_ptr)) = strslice_to_integer(current_operator);
-                }
-                else if(is_strslice_realnum(current_operator))
-                {
-                    NewObject.type = OBJTP_REALNUM;
-                    NewObject.source_ptr = (byte*)(new IcyFloat);
-                    *((IcyFloat*)(NewObject.source_ptr)) = strslice_to_realnum(current_operator);
-                }
-                else if(current_operator[0] == '\'')
-                {
-                    NewObject.type = OBJTP_CHAR;
-                    NewObject.source_ptr = (byte*)(new IcyChar);
-                    *((IcyChar*)(NewObject.source_ptr)) = (IcyChar)current_operator[1];
-                }
                 current_const_index = m_constobj_index_table.size();
                 m_constobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(current_operator,current_const_index));
-                m_constobj_table.push_back(NewObject);
+                m_constobj_table.push_back(read_icy_constant_val(current_operator));
                 current_node->source = current_const_index;
             }
             else
@@ -256,6 +346,8 @@ namespace Cirno{
             current_node->sub_nodes.push_back(sub_node);
             return current_node;
         }
+        else
+            throw"Exception from function \"Cirno::IcyProcess::generate_ast\":unknown type";
 
 
 
@@ -343,7 +435,20 @@ func myfunc (
                 break;
             initialize_list_begin++;
         }
-
+        param_begin_pos = jump_space_et_linefd(initialize_list_begin + 1);
+        param_name.ptr = param_begin_pos;
+        while(*param_begin_pos != ' ' && *param_begin_pos != '(')
+        {
+            param_begin_pos++;
+            param_name.len++;
+        }
+        if(!icy_naming_check(param_name))
+            throw"Exception from function\"Cirno::IcyProcess::make_function\": illegal indentifier.\n";
+        //找到需要被初始化的对象
+        std::map<StrSlice,uint,strslice_cmp>::iterator it;
+        it = m_current_localobj_index_table.find(param_name);
+        if(it == m_current_localobj_index_table.end())
+            throw"Exception from function\"Cirno::IcyProcess::make_function\": undefined object name.\n";
 
         //func myfunction(v1,value2)
         //012345678      0123456789
@@ -363,7 +468,16 @@ func myfunc (
         return p_this_function;
     }
 
-	IcyObject icy_execute_ast();
+
+    
+
+    IcyObject *IcyProcess::solve_const_expr(StrSlice _statement)
+    {
+        icyAstNode *pRootNode = generate_ast(_statement,nullptr);//第二个参数是空指针，因为被计算的全部是常量，不需参考函数上下文
+        if(!is_ast_const_expr(pRootNode))//如果不是常量表达式，那么抛出错误
+            throw"Exception from \"Cirno::IcyProcess::solve_const_expr\": initial value should be a constant expression.\n";
+        
+    }
 
 
 }

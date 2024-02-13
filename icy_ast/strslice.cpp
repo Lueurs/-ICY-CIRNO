@@ -275,7 +275,7 @@ char* find_pair_sign(char *_begin,int _range = -1)
 		}
 	}
 	if(level != 0)
-		throw"Exception from function find_pair_sign:unpaired bracket";//如果level不等于零说明代码中的括号没有匹配完整，抛出错误。
+		throw"Exception from function find_pair_sign:unpaired bracket\n";//如果level不等于零说明代码中的括号没有匹配完整，抛出错误。
 
 	return _begin;
 
@@ -344,7 +344,7 @@ bool is_strslice_wrapped_by_brackets(StrSlice &_slice)
 	}
 	//跳出之后i的值就是第一个圆括号完成配对的地方。如果这个括号是在末尾才被配对，说明这段代码完全被一个无意义圆括号包裹着。
 	if(level != 0)
-		throw"Exception from function \"is_strslice_wrapped_by_bracket\":unpaired bracket";
+		throw"Exception from function \"is_strslice_wrapped_by_bracket\":unpaired bracket\n";
 	if(i == _slice.len-1)
 		return true;
 	else
@@ -354,7 +354,7 @@ bool is_strslice_wrapped_by_brackets(StrSlice &_slice)
 void decorticate_strslice(StrSlice &_slice)
 {
 	if(_slice.len <= 2)
-		throw "Exception from function \"decorticate_strslice\":too short slice to be decorticated.";
+		throw "Exception from function \"decorticate_strslice\":too short slice to be decorticated.\n";
 	else{
 		_slice.ptr++;
 		_slice.len -= 2;
@@ -365,7 +365,9 @@ void decorticate_strslice(StrSlice &_slice)
 StrSlice fetch_icystr(char *_begin,uint _range)
 {
 	char end_sign = *_begin;//如果是双引号就用双引号结尾，如果是单引号就用单引号结尾
-	
+	//unfinished
+
+
 }
 
 int strslice_to_integer(StrSlice _slice)

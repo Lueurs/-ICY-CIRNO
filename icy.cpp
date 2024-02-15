@@ -1,10 +1,9 @@
 #include<vector>
 #include<map>
-#include<unordered_map>
 #include"icy_ast/icy_ast.hpp"
 #include"stack.hpp"
 
-
+extern const char* g_icykeywd_array[];
 
 using ushort = unsigned short;
 using uint   = unsigned int;
@@ -13,21 +12,7 @@ using byte   = char;
 
 
 
-//std::size_t _strslice_hash(StrSlice &_slicce);
-
-struct strslice_cmp
-{
-    bool operator()(StrSlice sliceA,StrSlice sliceB)
-    {
-        return sliceA == sliceB;
-    }
-};
-
-//012345678
-//^   ^
-
-
-
+//🥰🥰
 
 namespace Cirno{
 	enum icyobj_t
@@ -46,8 +31,6 @@ namespace Cirno{
     using IcyInt   = int;
     using IcyFloat = double;
     using IcyChar  =  wchar_t;
-
-    typedef int IcyInt;
 
     void push_icyint(Stack &_stack,IcyInt _value)
     {
@@ -141,7 +124,7 @@ namespace Cirno{
             throw "Error:data type currently does not support addition operation.\n";//其他数据类型暂时不支持加法操作
     }
 
-    void icy_operator_sub(Stack &_stack)    //加法操作
+    void icy_operator_sub(Stack &_stack)    //减法操作
     {
         icyobj_t type_1 = pop_objt(_stack); //将第二个参数的数据类型标识出栈
         icyobj_t type_2;
@@ -167,7 +150,7 @@ namespace Cirno{
             throw "Error:data type currently does not support subtraction operation.\n";
     }
 
-    void icy_operator_mul(Stack &_stack)    //加法操作
+    void icy_operator_mul(Stack &_stack)    //乘法操作
     {
         icyobj_t type_1 = pop_objt(_stack); //将第二个参数的数据类型标识出栈
         icyobj_t type_2;
@@ -193,6 +176,7 @@ namespace Cirno{
             throw "Error:data type currently does not support multiplication operation.\n";
     }  
 
+    void icy_print(Stack &_stack);
 
 
 
@@ -285,7 +269,94 @@ namespace Cirno{
         
     }
 
-    
+
+    TokenList lexical_analyse(char *_code,uint _code_len)
+    {
+        TokenList result;
+        StrSlice current_token;
+        char* code_end = _code + _code_len;
+        current_token.ptr = jump_space(_code);//如果代码全篇都是空格，那么这样就会直接跳转到代码尾部，不会进入下方的循环
+        while(current_token.ptr != code_end)
+        {
+            current_token.len = 1;
+            if(is_ch_in_cstr(current_token[0],"*/^=<>!"))
+            {
+                if(code_end - current_token.ptr >= 2)
+                    if(current_token[1] == '=')
+                    {
+                        current_token.len = 2;
+                        result.emplace_back(current_token);
+                        current_token.ptr += 2;
+                        continue;
+                    }
+                else if(is_ch_in_cstr(current_token[0],"+-"))//判断一下是正负号还是加减号
+                {
+                    if(result.size() == 0 ||
+                       is_ch_in_cstr((result[result.size()-1])[0],"+-*/!=<>[]{}\n;"))//如果减号前面是这些符号，或者前面根本就没有什么，说明它其实是一个负号
+                       current_token.property = UNARY_OPERATOR;
+                    else
+                        current_token.property = BINARY_OPERATOR;
+                }
+            }
+            else if(is_ch_in_cstr(current_token[0],"[](){}.:\n\'\",;"))
+            {
+                result.emplace_back(current_token);
+                current_token.ptr++;
+                continue;
+            }
+            else if(current_token[0] == '#')
+            {
+                while(current_token.ptr != code_end)
+                {
+                    if(current_token[0] == '\n')
+                        break;
+                    current_token.ptr++;
+                }
+                if(current_token.ptr == code_end)
+                    break;
+            }
+            else if(current_token[0]  == '_' || is_letter(current_token[0]))
+            {
+                while(current_token.ptr + current_token.len != code_end && (current_token[current_token.len - 1],"+-*/^%!<>=()[]{},.;&"))
+                    current_token.len++;
+            }
+            else if(is_number(current_token[0])) //数字的解析。这里我改了很久，估计还是有严重的问题
+            {
+                bool dot{false};//是否有小数点
+                while(current_token.ptr + current_token.len != code_end)
+                {
+                    if(current_token[current_token.len] == '.')
+                    {
+                        if(dot)     //如果已经有小数点了，那就直接跳出循环，不再向下读取
+                            break;
+                        else if(current_token.ptr + current_token.len + 1 == code_end ||
+                               !is_number(current_token[current_token.len+1]))//如果这个小数点是代码中的最后一个字符,或者小数点后面不是数字,也跳出循环，不再读取
+                            break;
+                        else//否则(这段数字中之前没有出现过小数点，而且小数点不在代码的尾部出现，小数点的后面一个字符也是数字)
+                            dot = true;
+                    }
+                    else if(!is_number(current_token[current_token.len]))
+                        break;
+                    current_token.len++;            
+                }   
+            }
+            else if(current_token[0] == '\"')
+            {
+                while(current_token.ptr + current_token.len != code_end && current_token[current_token.len - 1] != '\"')
+                    current_token.len++;
+                if(current_token.ptr + current_token.len == code_end)
+                    throw"[Lexical Analyse]Exception from Cirno::IcyProcess::lexical_analyse: unpaired double quotation mark.\n";
+            }
+            else
+                throw"[Lexical Analyse]Exception from Cirno::IcyProcess::illegal character.\n";
+            result.emplace_back(current_token);     //将得到的语词插入列表
+            current_token.ptr += current_token.len; //更新位置
+            current_token.ptr = jump_space(current_token.ptr);//跳过可能存在的空格
+            
+        }
+        
+        
+    }
 
 	//CIRNO的函数
 	struct IcyFunction
@@ -305,13 +376,19 @@ namespace Cirno{
     public:
         
 	protected:
-		icyAstNode *generate_ast(StrSlice _statement,IcyFunction *_pfunction_context);//第四个参数主要是提供上下文信息。
-		IcyObject	execute_ast(icyAstNode* _root,IcyThread &_thread_context,IcyFunction &_func_context);        
-        IcyObject   solve_const_expr(StrSlice _statement);
-        IcyFunction *make_function(StrSlice _statement);
+		//icyAstNode  *generate_ast(StrSlice _statement,IcyFunction *_pfunction_context);//第四个参数主要是提供上下文信息。
+        icyAstNode  *generate_ast2(TokenList::iterator _begin,TokenList::iterator _end,IcyFunction *_pfunction_context);//上面那个函数的升级版
 
+		IcyObject	execute_ast(icyAstNode* _root,IcyThread &_thread_context,IcyFunction &_func_context);        
+        IcyObject  solve_const_ast(icyAstNode *_root);
+        IcyFunction *make_function(StrSlice _statement);
+        IcyFunction make_function2(TokenList _code);    
+        IcyThread   compile_script(char *_source_code, char* _code_file_name,uint _code_len = 0u);
 
 	private:
+        char    *m_code;  //源代码
+        uint     m_code_len; //代码长度
+        char    *m_file_name; //源代码文件名
         //所有的函数也是对象，当完成一个make_function之后make_function的信息也会被存入下面两个表中
 		std::map<StrSlice,uint,strslice_cmp>     m_mutualobj_index_table;	//共享对象的索引表
 		std::vector<IcyObject>  		         m_mutualobj_table;			//共享对象的地址表
@@ -325,164 +402,207 @@ namespace Cirno{
         //每次根据对象声明的次序分配索引存入表中，在之后生成AST的过程中如果扫描到相同的对象名，就可以
 	};
 
-    icyAstNode *IcyProcess::generate_ast(StrSlice _statement,IcyFunction *_pfunction_context)
+
+    icyAstNode *IcyProcess::generate_ast2(TokenList::iterator _begin,TokenList::iterator _end,IcyFunction *_pfunc_context)
     {
-        icyAstNode *pAstNode;
-        StrSlice    current_operator = icy_find_minlevel_token(_statement);                //获取当前一级的操作符
-        icyAstNode *current_node = make_ast_node_via_strslice(current_operator);    //根据当前操作符生成相应的节点
-        uint        current_local_index;    //本地对象当前应该使用的索引值
-        uint        current_mutual_index;   //共享对象当前应该使用的索引值
-        uint        current_const_index;    //常量当前应该使用的索引值
-        StrSlice    param1,param2;
-        //创建对象的指令节点不会被添加到抽象语法树中。相反，对象在编译阶段就被创建，创建对象的操作最终只产生一个对象引用节点。
-        if(current_node->node_type == NODETP_CREATE_LOCAL_OBJ)  //如果是创建局部对象的指令
+        icyAstNode *current_node;
+        TokenList::iterator current_token = icy_find_minlevel_token2(_begin,_end);//先找到这一段中执行优先级最低的节点中在表达式最右侧的那个
+        current_node = make_ast_node_via_strslice(*current_token);                                        //根据字符生成相应的抽象语法树节点
+
+        uint current_index{0};
+
+        std::map<StrSlice,uint,strslice_cmp>::iterator it;
+        if(current_node->node_type == NODETP_CREATE_CONST_OBJ)  //如果是定义常量的节点
         {
-            //显然var指令后面必须是对象名，直接尝试读取
-            StrSlice object_name = jump_space(current_operator.ptr + 3);//这里可以直接赋值是因为没有禁用隐式转换，注意看一下数据的类型
-            //对象名之后的符号有可能是:1.空格 2.换行符号（未初始化的对象）3.赋值符号=
-            //下面根据这个规律读取完整的对象名
-            while(object_name[object_name.len] != ' ' && object_name[object_name.len] != '\n' && object_name[object_name.len] != '=')
-                object_name.len++;
-            //下面检查这个对象名是否已经被声明
-            std::map<StrSlice,uint,strslice_cmp>::iterator it;
-            it = m_mutualobj_index_table.find(object_name); //全局找一下
-            if(it != m_mutualobj_index_table.end())
-                throw"Exception from function \"Cirno::IcyProcess::generate_ast\": multiple definition of an object(defined in mutual scope)";
-            it = m_current_localobj_index_table.find(object_name);//局部找一下
-            if(it != m_current_localobj_index_table.end())
-                throw"Exception from function \"Cirno::IcyProcess::generate_ast\": multiple definition of an object(defined in local scope)";
-            //将新对象插入表中
-            current_local_index = _pfunction_context->m_localobj_table.size();  //  
-            m_current_localobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(object_name,current_local_index));
-            _pfunction_context->m_localobj_table.push_back(IcyObject());
+            auto obj_name = current_token+1;
+            if(obj_name == _end)
+                throw"[Syntax Analyse]Exception from Cirno::IcyProcess::generate_ast2: command missing argument.\n";//没有被定义的常量名
+            if(!icy_naming_check(*obj_name))
+                throw"[Lexical Analyse]Exception from Cirno::IcyProcess::generate_ast2: illegal object name.\n";//命名不合法错误
+            //检测该名称是否已经被使用
+            bool defined{
+                m_constobj_index_table.find(*obj_name) != m_constobj_index_table.end() ||
+                m_mutualobj_index_table.find(*obj_name) != m_mutualobj_index_table.end() ||
+                m_current_localobj_index_table.find(*obj_name) != m_current_localobj_index_table.end() 
+            };
+            if(defined)
+                throw"[Syntax Analyse]Exception from Cirno::IcyProcess::generate_ast2: multiple definition of an object.\n";//重复定义错误
+            
+            current_index = m_constobj_table.size();
+            m_constobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(*obj_name,current_index));
+            m_constobj_table.emplace_back(IcyObject());
 
-            //我们不销毁current_node，而是直接改变它的属性。这样会更快吧
-            current_node->node_type = NODETP_LOCAL_OBJECT;
-            current_node->source    = current_local_index;
-
-            return current_node;//返回这个对对象引用的节点
+            current_node->node_type = NODETP_CONST_OBJECT;  //直接将创建对象的节点转化为对节点本身的引用的节点
+            current_node->source = current_index;           
         }
-        //你怎么知道我这一段代码是上一段直接copy&paste过来再修改的
-        else if(current_node->node_type == NODETP_CREATE_MUTUAL_OBJ)  //如果是创建局部对象的指令
+        else if(current_node->node_type == NODETP_CREATE_MUTUAL_OBJ)  //如果是定义常量的节点
         {
-            StrSlice object_name = jump_space(current_operator.ptr + 6);
-            while(object_name[object_name.len] != ' ' && object_name[object_name.len] != '\n' && object_name[object_name.len] != '=')
-                object_name.len++;
-            std::map<StrSlice,uint,strslice_cmp>::iterator it;
-            it = m_mutualobj_index_table.find(object_name); //全局找一下
-            if(it != m_mutualobj_index_table.end())
-                throw"Exception from function \"Cirno::IcyProcess::generate_ast\": multiple definition of an object(defined in mutual scope)";
-            it = m_current_localobj_index_table.find(object_name);//局部找一下
-            if(it != m_current_localobj_index_table.end())
-                throw"Exception from function \"Cirno::IcyProcess::generate_ast\": multiple definition of an object(defined in local scope)";
-            //将新对象插入表中
-            current_mutual_index = m_mutualobj_table.size();  //  
-            m_mutualobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(object_name,current_mutual_index));
-            m_mutualobj_table.push_back(IcyObject());
+            auto obj_name = current_token+1;
+            if(obj_name == _end)
+                throw"[Syntax Analyse]Exception from Cirno::IcyProcess::generate_ast2: command missing argument.\n";//没有被定义的常量名
+            if(!icy_naming_check(*obj_name))
+                throw"[Lexical Analyse]Exception from Cirno::IcyProcess::generate_ast2: illegal object name.\n";//命名不合法错误
+            //检测该名称是否已经被使用
+            bool defined{
+                m_constobj_index_table.find(*obj_name) != m_constobj_index_table.end() ||
+                m_mutualobj_index_table.find(*obj_name) != m_mutualobj_index_table.end() ||
+                m_current_localobj_index_table.find(*obj_name) != m_current_localobj_index_table.end() 
+            };
+            if(defined)
+                throw"[Syntax Analyse]Exception from Cirno::IcyProcess::generate_ast2: multiple definition of an object.\n";//重复定义错误
+            
+            current_index = m_mutualobj_table.size();
+            m_mutualobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(*obj_name,current_index));
+            m_mutualobj_table.emplace_back(IcyObject());
 
-            //我们不销毁current_node，而是直接改变它的属性。这样会更快吧
-            current_node->node_type = NODETP_MUTUAL_OBJECT;
-            current_node->source    = current_mutual_index;
-
-            return current_node;//返回这个对对象引用的节点
+            current_node->node_type = NODETP_MUTUAL_OBJECT;  //直接将创建对象的节点转化为对节点本身的引用的节点
+            current_node->source = current_index;           
         }
-        //对象类节点
+        else if(current_node->node_type == NODETP_CREATE_LOCAL_OBJ)  //如果是定义常量的节点
+        {
+            auto obj_name = current_token+1;
+            if(obj_name == _end)
+                throw"[Syntax Analyse]Exception from Cirno::IcyProcess::generate_ast2: command missing argument.\n";//没有被定义的常量名
+            if(!icy_naming_check(*obj_name))
+                throw"[Lexical Analyse]Exception from Cirno::IcyProcess::generate_ast2: illegal object name.\n";//命名不合法错误
+            //检测该名称是否已经被使用
+            bool defined{
+                m_constobj_index_table.find(*obj_name) != m_constobj_index_table.end() ||
+                m_mutualobj_index_table.find(*obj_name) != m_mutualobj_index_table.end() ||
+                m_current_localobj_index_table.find(*obj_name) != m_current_localobj_index_table.end() 
+            };
+            if(defined)
+                throw"[Syntax Analyse]Exception from Cirno::IcyProcess::generate_ast2: multiple definition of an object.\n";//重复定义错误
+            
+            current_index = _pfunc_context->m_localobj_table.size();
+            m_current_localobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(*obj_name,current_index));
+            _pfunc_context->m_localobj_table.emplace_back(IcyObject());
+
+            current_node->node_type = NODETP_LOCAL_OBJECT;  //直接将创建对象的节点转化为对节点本身的引用的节点
+            current_node->source = current_index;           
+        }
         else if(current_node->node_type == _NODETPSEC_OBJECT_SEC_)
         {
-        //下面在各个作用域查找这个对象
-            std::map<StrSlice,uint,strslice_cmp>::iterator it;
-            it = m_mutualobj_index_table.find(current_operator);
-            if(it != m_mutualobj_index_table.end())//如果在全局共享对象中可以找到
+            it = m_constobj_index_table.find(*current_token);
+            if(it != m_constobj_index_table.end())
             {
-                current_node->source    = it->second;  //将索引值置入节点
-                current_node->node_type = NODETP_MUTUAL_OBJECT; //  设置节点类型为共享对象引用
+                current_node->source = it->second;
+                current_node->node_type = NODETP_CONST_OBJECT;
                 return current_node;
             }
-            it = m_current_localobj_index_table.find(current_operator);
+            it = m_mutualobj_index_table.find(*current_token);
+            if(it != m_mutualobj_index_table.end())
+            {
+                current_node->source = it->second;
+                current_node->node_type = NODETP_MUTUAL_OBJECT;
+                return current_node;
+            }
+            it = m_current_localobj_index_table.find(*current_token);
             if(it != m_current_localobj_index_table.end())
             {
                 current_node->source = it->second;
                 current_node->node_type = NODETP_LOCAL_OBJECT;
                 return current_node;
             }
-            it = m_constobj_index_table.find(current_operator);
-            if(it != m_constobj_index_table.end())
-            {
-                current_node->source = it->second;
-                current_node->node_type = NODETP_CONST_OBJECT;
-                return current_node;
-            } 
-            else//如果哪里都找不到定义，那么只好抛出错误了
-                throw"Exception from function \"Cirno::IcyProcess::generate_ast\": undefined identifier";          
+            else
+                throw"[Syntax Analyse]Exception from Cirno::IcyProcess::generate_ast2: undefined token.\n";            
+
         }
-        //常量类节点，包括常量数字、字符和字符串
+        else if(current_node->node_type == NODETP_SHIF_ACCESS)//这个是用]符号表示的
+        {
+            auto left_mark = find_left_pair(current_token,_begin);
+            auto sub_node1 = generate_ast2(_begin,left_mark,_pfunc_context);//递归生成其第一个子节点
+
+            auto sub_node2 = generate_ast2(left_mark+1,current_token,_pfunc_context);   //递归生成其第二个子节点
+            current_node->sub_nodes.emplace_back(sub_node1);
+            current_node->sub_nodes.emplace_back(sub_node2);
+
+        }
+        else if(current_node->node_type > _NODETPSEC_BIN_BEGIN_ && current_node->node_type < _NODETPSEC_BIN_END_)//统一处理其他双目运算符
+        {
+            auto sub_node1 = generate_ast2(_begin,current_token,_pfunc_context);//递归生成两个子节点
+            auto sub_node2 = generate_ast2(current_token,_end,_pfunc_context);
+            current_node->sub_nodes.emplace_back(sub_node1);//加入两个子节点
+            current_node->sub_nodes.emplace_back(sub_node2);
+        }
         else if(current_node->node_type == NODETP_CONST_OBJECT)
         {
-            std::map<StrSlice,uint,strslice_cmp>::iterator it;
-            it = m_constobj_index_table.find(current_operator);
-            if(it == m_constobj_index_table.end())
+            it = m_constobj_index_table.find(*current_token);
+            if(it == m_constobj_index_table.end())  //如果尚未录入则去录入一下
             {
-                current_const_index = m_constobj_index_table.size();
-                m_constobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(current_operator,current_const_index));
-                m_constobj_table.push_back(read_icy_constant_val(current_operator));
-                current_node->source = current_const_index;
+                current_index = m_constobj_table.size();
+                m_constobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(*current_token,current_index));
+                m_constobj_table.emplace_back(read_icy_constant_val(*current_token));
+                current_node->source = current_index;
             }
             else
-            {
                 current_node->source = it->second;
-            }
-            return current_node;
-
-        }
-        else if(current_node->node_type == NODETP_SHIF_ACCESS)
-        {
-            //获取第一个参数
-            param1.ptr = _statement.ptr;
-            param1.len = current_operator.ptr - _statement.ptr;
-            //获取第二个参数
-            param2.ptr = current_operator.ptr+1;
-            char* end_pos = find_pair_sign(_statement.ptr,_statement.len - (current_operator.ptr - _statement.ptr));
-            param2.len = end_pos - param2.ptr;
-            //向下迭代生成sub_ast并添加为当前节点的子节点
-            auto sub_node1 = generate_ast(param1,_pfunction_context);
-            auto sub_node2 = generate_ast(param2,_pfunction_context);
-            current_node->sub_nodes.push_back(sub_node1);
-            current_node->sub_nodes.push_back(sub_node2);
-            return current_node;
-
-
-        }
-        //这里统一处理[]之外所有的双目运算符
-        else if(current_node->node_type > _NODETPSEC_BIN_BEGIN_ && current_node->node_type < _NODETPSEC_BIN_END_)
-        {
-            param1.ptr = _statement.ptr;
-            param1.len = current_operator.ptr - _statement.ptr;
-
-            param2.ptr = current_operator.ptr + current_operator.len;
-            param2.len = _statement.ptr + _statement.len - current_operator.ptr -1;
-
-            auto sub_node1 = generate_ast(param1,_pfunction_context);
-            auto sub_node2 = generate_ast(param2,_pfunction_context);
-            current_node->sub_nodes.push_back(sub_node1);
-            current_node->sub_nodes.push_back(sub_node2);
-            return current_node;
         }
         else if(current_node->node_type == NODETP_NOT)
         {
-            // ! success
-            //0123456789
-            param1.ptr = current_operator.ptr + 1;
-            param1.len = _statement.ptr + _statement.len - current_operator.ptr - 1;
-            auto sub_node = generate_ast(param1,_pfunction_context);
-            current_node->sub_nodes.push_back(sub_node);
-            return current_node;
+            auto sub_node = generate_ast2(current_token+1,_end,_pfunc_context);
+            current_node->sub_nodes.emplace_back(sub_node);
+        }
+        else if(current_node->node_type == NODETP_POS)
+        {
+            auto sub_node = generate_ast2(current_token+1,_end,_pfunc_context);
+            return sub_node;//其实这个在算数上没有任何作用...要不要删掉这个呢
+        }
+        else if(current_node->node_type == NODETP_NEG)
+        {
+            auto sub_node = generate_ast2(current_token+1,_end,_pfunc_context);
+            current_node->sub_nodes.emplace_back(sub_node);
+        }
+        else if(current_node->node_type == NODETP_LIST)
+        {
+            TokenList::iterator element_begin = current_token+1;
+            TokenList::iterator element_end;
+            icyAstNode *pSubTree{nullptr};
+            TokenList::iterator end_square_bracket = find_right_pair(current_token,_end);
+
+            while(element_begin != end_square_bracket)
+            {
+                element_begin++;
+                while(element_begin != end_square_bracket && *element_begin == "\n")//第一个迭代器定位到第元素值的起始位置
+                    element_begin++;
+                element_end = element_begin;
+                while(element_end != end_square_bracket && !(*element_end == "," || *element_end == ")"))//另一个迭代器定位到元素末尾
+                    element_end++;
+                pSubTree = generate_ast2(element_begin,element_end,_pfunc_context);
+                current_node->sub_nodes.emplace_back(pSubTree);                     //插入子节点
+                element_begin = element_end;
+            }
+        }
+        /*
+            if conditionA and condition B:                            
+        */
+       /*[if]
+          |---[0][CONDITION]
+          |---[1][EXECUTE_IF_TRUE]
+          |---[2][ELSE]
+       */
+
+        else if(current_node->node_type == NODETP_IF)
+        {
+            auto condition_begin = current_token;
+            auto condition_end = condition_begin;
+            while(condition_end != _end && !(*condition_end == ":"))
+                condition_end++;
+            auto ConditionTreeRoot = generate_ast2(condition_begin,condition_end,_pfunc_context);
+            current_node->sub_nodes.emplace_back(ConditionTreeRoot);//获取分支条件
+            
+            TokenList::iterator exe_if_true_begin = condition_end;
+            while(exe_if_true_begin != _end && *exe_if_true_begin == "\n")//获取IF为真将要执行的段落
+                exe_if_true_begin++;
+
+            
         }
         else
-            throw"Exception from function \"Cirno::IcyProcess::generate_ast\":unknown type";
-
-
+            throw"[Unfinished part]:currently unsupport type.\n";
+        return current_node;
 
     }
+
     void execute_ast(icyAstNode* _root,IcyThread &_thread_context,IcyFunction &_func_context)
     {
         if(_root->node_type == NODETP_LOCAL_OBJECT)
@@ -504,133 +624,75 @@ namespace Cirno{
         }
     }
 
-/*
-func myfunc ( 
-            param1,
-             param2
-             )
-        :
-        param1 ("something"),
-        param2
-        (48)
-        {
 
-        }
-*/
-	IcyFunction *IcyProcess::make_function(StrSlice _code)
+    IcyFunction IcyProcess::make_function2(TokenList _code)
     {
-        IcyFunction* p_this_function = new IcyFunction;
+        m_current_localobj_index_table.clear();//因为是要创建一个新的函数，所以清空之前函数残留的信息
+        IcyFunction ret_func;
+        StrSlice function_name = _code[1];//获取函数名
+        /*检查命名合法性*/
 
-        char *new_pos = jump_space(_code.ptr+4,_code.len-4);    // 跳过关键字func以及紧随其后的空格，直接定位到函数名的开头
-        _code.len -= (new_pos - _code.ptr);
-        _code.ptr = new_pos;
+        uint local_index{0};
 
+        //对参数列表左右两个括号进行定位
+        auto left_bracket = _code.begin()+2;
+        auto right_bracket = find_right_pair(left_bracket,_code.end());
 
-        //获取函数名称
-        StrSlice function_name(_code.ptr);
-        uint i;
-        for(i=0; i<_code.len;i++)//一直走到左括号为止.这里可以看出i=0时标识的位置是函数名称的第一个字母
-            if(_code[i] == '(' || _code[i] == ' ')
-                break;
-        function_name.len = i;
-        //至此完成了对函数名称的收集
-        if(!icy_naming_check(function_name))
-            throw"Exception from function\"Cirno::IcyProcess::make_function\":illegal function name\n";
-
-        //获取参数
-        //v
-        char* bracket_begin = jump_space(_code.ptr+i);
-        //^
-        char* bracket_end = find_pair_sign(bracket_begin);
-        StrSlice param_name;//长度默认为0
-        param_name.ptr = bracket_begin+1;//定位到左括号之后的位置
-        param_name.ptr = jump_space_et_linefd(param_name.ptr);//跳过可能存在的空格和换行符号
-
-        char* param_begin_pos = param_name.ptr; //获得参数列表的起始位置
-
-        uint current_index{0};
-        uint num_params{0};//参数的数量
-        for(i=0; param_begin_pos + i != bracket_end; i++)//i在这里被重置了
+        for(auto param = left_bracket+1;param != right_bracket;param++)
         {
-            if(function_name[i] == ',')
+            if(*param == ",")
+                continue;
+            else if(*param == "\n")
+                continue;
+            else
             {
-                current_index = m_current_localobj_index_table.size();//当前对象被分配到的索引
-                if(!icy_naming_check(param_name))//如果该参数名不合法则抛出错误
-                    throw"Exception from function\"Cirno::IcyProcess::make_function\":illegal param name\n";
-                m_current_localobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(param_name,current_index));//将参数信息插入表中
-                p_this_function->m_localobj_table.push_back(IcyObject());//创建对象的索引。尽管是空的
-                //至此，对当前参数信息的录入已经完成
-                if(param_begin_pos + i + 1 == bracket_end)    // 如果逗号后面的位置就是右括号，抛出错误
-                    throw"Exception from function \"Cirno::IcyProcess::make_function\": lose parameter after comma\n";
-                
-                param_name.ptr = jump_space_et_linefd(function_name.ptr + i + 1);//跳过可能存在的空格和换行，直接定位到下一个参数名的首字母
-                param_name.len = 0; //重置长度
-                continue;       //进入下一轮循环
-                
+                m_current_localobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(*param,local_index));
+                ret_func.m_localobj_table.emplace_back(IcyObject());
+                local_index++;
             }
-            param_name.len++;
-            
         }
-        //定义最后一个参数
-        current_index = m_current_localobj_index_table.size();
-        m_current_localobj_index_table.insert(std::map<StrSlice,uint,strslice_cmp>::value_type(param_name,current_index));
-        p_this_function->m_localobj_table.push_back(IcyObject());
-        //所有参数的定义完成了
+        TokenList::iterator param_begin = left_bracket+1;
+        TokenList::iterator param_end;
 
-        //下面对参数的初始化列表进行读取
-        char *initialize_list_begin = bracket_end + 1;
-        while(initialize_list_begin != _code.ptr + _code.len && *initialize_list_begin != '{')
+        icyAstNode *initialize_expr{nullptr};
+
+        while(param_begin <= right_bracket)
         {
-            if(*initialize_list_begin == ':')
-                break;
-            initialize_list_begin++;
+            while(*param_begin == "\n")
+                param_begin++;
+            param_end = param_begin;
+            while(!(*param_end == ",") && param_end != right_bracket)//参数和参数之后的逗号之间不允许换行
+                param_end++;
+            if(param_begin != right_bracket)
+            {
+                uint param_index = ret_func.m_localobj_table.size();
+                initialize_expr = generate_ast2(param_begin,param_end,&ret_func);//参数在这里就已经被注册了
+                if(initialize_expr->node_type == NODETP_MOV)
+                {
+                    
+                    if(!is_ast_const_expr(initialize_expr->sub_nodes[1]))
+                        throw"[Syntax Error]initial value of a parameter should be a constant expression.\n";
+                    IcyObject initial_value = solve_const_ast(initialize_expr->sub_nodes[1]);//获取参数默认值
+                    ret_func.default_param_value_table.insert(std::map<uint,IcyObject>::value_type(param_index,initial_value));//记录初始值
+                }
+                else if(initialize_expr->node_type != NODETP_CREATE_LOCAL_OBJ)
+                    throw"[Syntax Error]unsupported operation here.\n";
+            }
+            param_begin = param_end + 1;
         }
-        param_begin_pos = jump_space_et_linefd(initialize_list_begin + 1);
-        param_name.ptr = param_begin_pos;
-        while(*param_begin_pos != ' ' && *param_begin_pos != '(')
-        {
-            param_begin_pos++;
-            param_name.len++;
-        }
-        if(!icy_naming_check(param_name))
-            throw"Exception from function\"Cirno::IcyProcess::make_function\": illegal indentifier.\n";
-        //找到需要被初始化的对象
-        std::map<StrSlice,uint,strslice_cmp>::iterator it;
-        it = m_current_localobj_index_table.find(param_name);
-        if(it == m_current_localobj_index_table.end())
-            throw"Exception from function\"Cirno::IcyProcess::make_function\": undefined object name.\n";
-
-        //func myfunction(v1,value2)
-        //012345678      0123456789
-        //^    ^
-        //     0123456789
-        
-        /*
-        func myfunc(p1,p2)
-        :p1(12),p2("Hello")
-        {
-
-        }
-        */
-
-
-
-        return p_this_function;
+        auto body_begin = param_end+1;
+        icyAstNode* root = generate_ast2(body_begin,_code.end(),&ret_func);
+        ret_func.function_body = *root;
+        delete root;
+        return ret_func;
     }
 
-
-    
-
-    IcyObject IcyProcess::solve_const_expr(StrSlice _statement)
+    IcyObject IcyProcess::solve_const_ast(icyAstNode *_root)
     {
         IcyObject result;
-        icyAstNode *pRootNode = generate_ast(_statement,nullptr);//第二个参数是空指针，因为被计算的全部是常量，不需参考函数上下文
-        if(!is_ast_const_expr(pRootNode))//如果不是常量表达式，那么抛出错误
-            throw"Exception from \"Cirno::IcyProcess::solve_const_expr\": initial value should be a constant expression.\n";
-        IcyThread temp_thread_context;      //由于执行抽象语法树需要一个线程环境，所以临时创建一个来用
-        IcyFunction temp_function_context;  //同上
-        execute_ast(pRootNode,temp_thread_context,temp_function_context);   //执行抽象语法树
-        icyobj_t value_type = pop_objt(temp_thread_context.local_swap_stack);//刚才我把这个临时的线程环境对象扔给execute_ast用了，execute_ast残留的返回值还在这个线程环境对象的栈里面
+        IcyThread temp_thread_context;
+        execute_ast(_root,temp_thread_context,temp_thread_context.main_function);   //执行抽象语法树(这里的函数上下文随便用一个就可以，反正这个函数执行完就会销毁函数上下文)
+        icyobj_t value_type = pop_objt(temp_thread_context.local_swap_stack);//取出execute_ast运行后在线程上下文的栈里留下的数据
         switch(value_type)//根据返回的类型取出具体的返回值
         {
             case OBJTP_INTEGER:
@@ -645,7 +707,25 @@ func myfunc (
                 throw"Exception from Cirno::IcyProcess::solve_const_expr: currently unsupported data type.\n";
         }
         return result;
+
     }
 
+    IcyThread IcyProcess::compile_script(char *_source_code, char *_code_file_name,uint _code_len)
+    {
+        IcyThread main_thread;  //主线程
+        if(_source_code && !_code_len)      //如果不是空的指针且未声明代码长度，则自动获取长度
+            _code_len = strlen(_source_code);
+        TokenList token_list = lexical_analyse(_source_code,_code_len);//完成词法分析
+        
+        for(auto it = token_list.begin(); it != token_list.end(); it++)
+        {
+            if(*it == "func")
+            {
+                auto sk = it;
+                
+            }
+        }
 
+        
+    }
 }

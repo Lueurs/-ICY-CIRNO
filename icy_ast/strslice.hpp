@@ -10,21 +10,41 @@ uint strlen(char* _str);	//p[?]获取字符串长度的函数
 
 uint strlen(const char* _cstr);//p[?]同上
 
+
+
+enum strslice_property:ushort
+{
+	UNARY_OPERATOR = 0u,
+	BINARY_OPERATOR,
+
+	CREATE_LIST,
+	ACCESS_LIST
+
+};
+
 struct StrSlice
 {
 	char* ptr;
 	uint  len;
-
+	ushort property;
 	StrSlice();
 	StrSlice(const char* _cstr);
 	StrSlice(char* _str);	//[?]
 	char &operator[](uint _idx);//[?]
 	bool operator == (const char* _cstr);//[?]
 	bool operator == (StrSlice& _slice);//[?]
+	bool operator !=(const char* _cstr);
+	bool operator != (StrSlice &_slice);
 };
 
 
-
+struct strslice_cmp	//这个函数对象主要是方便使用rb-tree的模板
+{
+    bool operator()(StrSlice sliceA,StrSlice sliceB)
+    {
+        return sliceA == sliceB;
+    }
+};
 
 bool compair_strslice_with_str(StrSlice& _strslice,char* _str);		//p[]判断一个字符串和一个字符串切片内容是否相同的函数
 
@@ -70,7 +90,7 @@ char* find_pair_sign(char* _begin,int _range = -1);	//p[]找到该字符配对�
 
 bool is_current_token_correct(StrSlice &_slice);	//检查当前的token是否合法
 
-StrSlice fetch_name(StrSlice &_slice);	//p[]找到第一个符合命名规范的片段,如在"var a = 12"中提取出"var"
+StrSlice fetch_name(StrSlice _slice);	//p[]找到第一个符合命名规范的片段,如在"var a = 12"中提取出"var"
 
 StrSlice fetch_number(StrSlice _slice);	//p[?]找到第一段数字字符切片
 
@@ -93,3 +113,9 @@ StrSlice fetch_icystr(char *_begin,uint _range);
 int strslice_to_integer(StrSlice _slice);//[!]
 
 double strslice_to_realnum(StrSlice _slice);//[?]
+
+bool is_in_division_char(char _ch);	//[?]
+
+char *find_strslice(char* _begin,StrSlice _target,uint _range = 0);	//p[]在字符串中寻找相应的字符序列
+
+bool is_ch_in_cstr(char _ch,const char *_cstr);		//检测字符是否是字符串中存在的种类

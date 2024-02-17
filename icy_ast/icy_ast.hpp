@@ -1,18 +1,31 @@
 #pragma once
 #include<vector>
+#include<list>
 #include"strslice.hpp"
+#include<string>
 
 using ushort = unsigned short;
 using uint   = unsigned int;
+
+using TokenList = std::vector<StrSlice>;
+
+TokenList::iterator find_right_pair(TokenList::iterator _begin,TokenList::iterator _end);
+TokenList::iterator find_left_pair(TokenList::iterator _end,TokenList::iterator _begin);
+
+TokenList cut_tokenlist(TokenList::iterator _begin,TokenList::iterator _end);//以两个迭代器之间的数据创建一个新的列表
+
+std::string strslice_to_string(StrSlice _slice);	//将StrSlice转化为string
 
 namespace Cirno{
 
 	enum icy_nodetype_t:ushort
 	{
+		NODETP_NIL,
 		NODETP_UNKNOWN,
 
-		NODETP_CREATE_LOCAL_OBJ,	//创建局部对象
-		NODETP_CREATE_MUTUAL_OBJ,	//创建共享对象
+		NODETP_CREATE_LOCAL_OBJ,
+		NODETP_CREATE_MUTUAL_OBJ,
+		NODETP_CREATE_CONST_OBJ,
 
 	_NODETPSEC_OBJECT_SEC_,
 		NODETP_LOCAL_OBJECT,
@@ -26,7 +39,7 @@ namespace Cirno{
 		NODETP_CALL,
 
 		NODETP_ADD,
-		NODETP_MINUS,
+		NODETP_SUB,
 		NODETP_MUL,
 		NODETP_DIV,
 		NODETP_POW,
@@ -44,11 +57,16 @@ namespace Cirno{
 //以上是双目运算符
 
 		NODETP_NOT,
+		NODETP_NEG,
+		NODETP_POS,
 
+		NODETP_SHIF_ACCESS,	//访问列表元素(其实这个也是双目运算符)
+		NODETP_LIST,
 
-		NODETP_SHIF_ACCESS,	//访问列表元素
+		NODETP_SCOPE,
 
 	_NODETPSEC_CONTROL_SECTION_,
+
 
 		NODETP_IF,
 		NODETP_LOOPIF,
@@ -80,7 +98,9 @@ namespace Cirno{
 
 	StrSlice icy_fetch_current_token(StrSlice &_slice);	//[?]读取（或者说标记）当前完整的一个操作符或操作数
 
-	StrSlice icy_find_minlevel_token(StrSlice);	//[!]找到该片段中优先级最低的操作符
+	//StrSlice icy_find_minlevel_token(StrSlice);	//[!]找到该片段中优先级最低的操作符
+
+	TokenList::iterator icy_find_minlevel_token2(TokenList::iterator _begin,TokenList::iterator _end);//上一个函数的升级版
 
 	icyAstNode* icy_generate_ast(StrSlice &_slice);	//[?]通过分析字符串，生成相应的抽象语法树
 

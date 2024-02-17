@@ -11,9 +11,13 @@
 using uint   = unsigned int;
 using ushort = unsigned short;
 
+char NAME_DIVISION_CHARS[] = " \n;,()[]{}:+-*/&!%@=<>\'\"";
+
 uint strlen(char* _str)
 {
-	uint result{0};
+	if(!_str)
+		return 0u;
+	uint result{0u};
 	while(*_str)
 	{
 		result++;
@@ -24,7 +28,9 @@ uint strlen(char* _str)
 
 uint strlen(const char* _cstr)
 {
-	uint result{0};
+	if(!_cstr)
+		return 0u;
+	uint result{0u};
 	while(*_cstr)
 	{
 		result++;
@@ -38,13 +44,16 @@ struct StrSlice
 {
 	char* ptr;
 	uint  len;
-
+	ushort property;
 	StrSlice();
 	StrSlice(const char* _cstr);
 	StrSlice(char* _str);
 	char &operator[](uint _idx);
 	bool operator == (const char* _cstr);
 	bool operator == (StrSlice &_slice);
+	bool operator !=(const char* _cstr);
+	bool operator != (StrSlice &_slice);
+
 };
 
 bool compair_strslice_with_str(StrSlice &_strslice,char *_str)
@@ -122,6 +131,14 @@ bool StrSlice::operator == (StrSlice& _slice)
 	return true;
 }
 
+bool StrSlice::operator !=(const char* _cstr)
+{
+	return !(*this == _cstr);
+}
+bool StrSlice::operator != (StrSlice &_slice)
+{
+	return !(*this == _slice);
+}
 
 
 
@@ -281,7 +298,7 @@ char* find_pair_sign(char *_begin,int _range = -1)
 
 }
 
-StrSlice fetch_name(StrSlice &_slice)//找到StrSlice中符合命名规范的第一个片段
+StrSlice fetch_name(StrSlice _slice)//找到StrSlice中符合命名规范的第一个片段
 {
 	StrSlice name;//默认地，name的指针为空，长度为0
 	uint i;
@@ -398,4 +415,75 @@ double strslice_to_realnum(StrSlice _slice)
 	small_value /= level;
 	return big_value + small_value;
 	
+}
+
+bool is_in_namediv_char(char _ch)
+{
+	for(auto c : NAME_DIVISION_CHARS)
+		if(_ch == c)
+			return true;
+	return false;
+}
+
+/*
+char *find_strslice(char* _begin,StrSlice _target,uint _range = 0)
+{
+	if(!_range)
+		_range = strlen(_begin);
+	char *sk{_begin};
+	bool find{false};
+	bool independent{false};
+	for(;sk != _begin + _range - _target.len; sk++)
+	{
+		if(is_in_division_char(*sk))
+			independent = true;
+		if(*sk == _target[0])
+		{
+			find = true;
+			for(uint i=1; i<_target.len; i++)
+				if(sk[i] != _target[i])
+					find = false;
+		}
+		if(find)
+			break;
+	}
+	return sk;
+
+}
+*/
+char *find_strslice(char *_begin,StrSlice _target,uint _range = 0)
+{
+	if(!_range)
+		_range = strlen(_begin);
+	char *segment_begin{_begin};
+	char *segment_end{nullptr};
+	bool find(false);
+	while(segment_begin != _begin + _range)
+	{
+		while(segment_begin != _begin + _range && is_in_namediv_char(*segment_begin))//一个指针定位到名称开头
+			segment_begin++;
+		segment_end = segment_begin;
+		while(segment_end != _begin + _range && !is_in_namediv_char(*segment_end))//另一个指针定位到名称结尾
+			segment_end++;
+		if(segment_end - segment_begin == _target.len)
+		{
+			find = true;	//不是真的找到了，只是可能找到了，下面进行验证。
+			for(char *scanner = segment_begin; scanner != segment_end; scanner++)
+				if(*scanner != _target[scanner-segment_begin])
+					find = false;
+		}
+		if(find)
+			return segment_begin;
+		segment_begin = segment_end;
+	}
+	return nullptr;
+}
+
+bool is_ch_in_cstr(char _ch,const char *_cstr)
+{
+	uint len = strlen(_cstr);
+	for(uint i=0; i<len; i++)
+		if(_ch == _cstr[i])
+			return true;
+	return false;
 }

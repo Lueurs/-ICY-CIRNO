@@ -1,8 +1,77 @@
 #include<vector>
 #include"strslice.hpp"
 #include"icydebug.hpp"
+#include<list>
+#include<string>
 
 char SQUARE_BRACKET[] = "[]";
+
+using TokenList = std::vector<StrSlice>;
+
+TokenList::iterator find_right_pair(TokenList::iterator _begin,TokenList::iterator _end)
+{
+	char left_ch  = (*_begin)[0];
+	char right_ch = get_pair_sign((*_begin)[0]);
+	int level{0};
+	TokenList::iterator it;
+	for(it=_begin; it!=_end; it++)
+	{
+		if((*it)[0] == left_ch)
+			level++;
+		else if((*it)[0] == right_ch)
+		{
+			level--;
+			if(level == 0)
+				break;
+		}
+	}
+	if(level != 0)
+		throw"[Syntax Analyse]Exception from function find_right_pair: unpaired symbol.\n";
+	return it;
+}
+TokenList::iterator find_left_pair(TokenList::iterator _end,TokenList::iterator _begin)
+{
+	char right_ch = (*_begin)[0];
+	char left_ch = get_pair_sign(right_ch);
+	int level{0};
+	TokenList::iterator it;
+	for(it = _end;;it--)
+	{
+		if((*it)[0] == right_ch)
+			level++;
+		if((*it)[0] == left_ch)
+		{
+			level--;
+			if(level == 0)
+				break;
+		}
+		if(it == _begin)
+			break;
+	}
+	if(it == _begin && (*it)[0] != left_ch)
+		throw"[Syntax Analyse]Exception from function find_left_pair: unpaired symbol.\n";
+	return it;
+}
+
+
+
+TokenList cut_tokenlist(TokenList::iterator _begin,TokenList::iterator _end)
+{
+	TokenList result;
+	result.reserve(_end-_begin);
+	for(;_begin != _end;_begin++)
+		result.emplace_back(*_begin);
+	return result;
+}
+
+std::string strslice_to_string(StrSlice _slice)
+{
+	std::string result;
+	result.reserve(_slice.len);
+	for(uint i=0; i<_slice.len; i++)
+		result.push_back(_slice[i]);
+	return result;
+}
 
 namespace Cirno{
 
@@ -15,15 +84,27 @@ namespace Cirno{
 		"func",
 		"ret",
 		"class",
-		"hlt"
+		"hlt",
+		"int",
+		"float",
+		"if",
+		"else",
+		"for",
+		"foreach",
+		"loopif",
+		"loopuntil",
+		"print",
+		"input"
 	};
 	
 	enum icy_nodetype_t:ushort
 	{
+		NODETP_NIL,
 		NODETP_UNKNOWN,
 
 		NODETP_CREATE_LOCAL_OBJ,
 		NODETP_CREATE_MUTUAL_OBJ,
+		NODETP_CREATE_CONST_OBJ,
 
 	_NODETPSEC_OBJECT_SEC_,
 		NODETP_LOCAL_OBJECT,
@@ -55,15 +136,21 @@ namespace Cirno{
 //以上是双目运算符
 
 		NODETP_NOT,
+		NODETP_NEG,
+		NODETP_POS,
+
 		NODETP_SHIF_ACCESS,	//访问列表元素(其实这个也是双目运算符)
+		NODETP_LIST,
+		NODETP_SCOPE,
 
 	_NODETPSEC_CONTROL_SECTION_,
-
+		
 		NODETP_IF,
 		NODETP_LOOPIF,
 		NODETP_LOOPUNTIL,
 		NODETP_FOR,
 		NODETP_FOREACH,
+
 
 	};
 
@@ -100,6 +187,11 @@ namespace Cirno{
 	//数字越小运算优先级越高
     ushort slice_operation_priority_level(StrSlice& _slice)
 	{
+		if(compair_strslice_with_cstr(_slice,"var") ||
+		   compair_strslice_with_cstr(_slice,"mutual") ||
+		   compair_strslice_with_cstr(_slice,"const")
+		)
+			return 0;
 		if(compair_strslice_with_cstr(_slice,"[]"))
 			return 1;
 		else if(compair_strslice_with_cstr(_slice,"@"))
@@ -111,8 +203,15 @@ namespace Cirno{
 		else if(compair_strslice_with_cstr(_slice,"*") || compair_strslice_with_cstr(_slice,"/"))
 			return 8;
 		else if(compair_strslice_with_cstr(_slice,"+") || compair_strslice_with_cstr(_slice,"-"))
-			return 16;
-		if(compair_strslice_with_cstr(_slice,"="))
+		{
+			if(_slice.property == BINARY_OPERATOR)
+				return 16;
+			else if(_slice.property == UNARY_OPERATOR)
+				return 3;
+			else
+				throw"[Lexical Analyse Exception]unrecognized symbol(+ or -).\n";
+		}
+		else if(compair_strslice_with_cstr(_slice,"="))
 			return 20;
 		else if(compair_strslice_with_cstr(_slice,"==") ||
 				compair_strslice_with_cstr(_slice,"<=") ||
@@ -136,239 +235,59 @@ namespace Cirno{
 	}
 
 
-	StrSlice icy_find_minlevel_token(StrSlice _slice)//找出运算优先级最低的那一个！我们会将其置于subtree的根节点上
+
+	TokenList::iterator icy_find_minlevel_token2(TokenList::iterator _begin,TokenList::iterator _end)
 	{
-		StrSlice root_operation;
-		ushort	 level_value{0};
-		icy_nodetype_t node_type;
-
-		StrSlice temp;
-		ushort current_level{0};
-
-		while(is_strslice_wrapped_by_brackets(_slice))//首先应该去除多余的括号
-			decorticate_strslice(_slice);
-		
-
-		uint i{0};
-		while(i < _slice.len)
+		ushort 		level_value{0};
+		StrSlice 	root_token;
+		while((*_begin)[0] == '(' && (_end ==find_right_pair(_begin,_end)++))//去除多余括号
 		{
-			//跳过圆括号
-			if(_slice[i] == '(')	//直接跳过括号里的内容，因为括号中的必然要被先计算
-			{
-				char *new_pos = find_pair_sign(_slice.ptr + i,_slice.len);
-				i += (new_pos - _slice.ptr);
-				continue;
-			}
-			//跳过空格
-			if(_slice[i] == ' ')
-			{
-				while(_slice[i] == ' ' && i < _slice.len)
-					i++;
-				continue;
-			}
-			//调用函数的符号
-			if(_slice[i] == '@')
-			{
-				if(i == _slice.len-1)
-					throw"Exception from function \"icy_find_minlevel_token\": operator lose argument.";
-				else
-				{
-					temp.ptr = _slice.ptr + i;
-					temp.len = 1;
-					if(slice_operation_priority_level(temp) >= level_value)
-					{
-						level_value = slice_operation_priority_level(temp);
-						root_operation = temp;
-					}
-					i++;
-					continue;
-				}
-			}
-
-			//加减乘除等运算符
-			if(_slice[i] == '+'	||
-			   _slice[i] == '-'	||
-			   _slice[i] == '*'	||
-			   _slice[i] == '/'	||
-			   _slice[i] == '=')
-			{
-//Error MSG  vv
-				if(i == _slice.len - 1)//如果等于号右方已经不存在代码段，说明这个运算符的参数不足
-					throw"Exception from function \"icy_find_minlevel_token\": operator lose argument";
-//Error MSG  ^^
-				if(_slice[i+1] == '=')
-				{
-//Error MSG vv
-					if(i == _slice.len - 2)//如果赋值号右方已经不存在代码段，说明这个运算符的参数不足
-						throw"Exception from function \"icy_find_minlevel_token\": operator lose argument";
-//Error MSG ^^
-					temp.ptr = _slice.ptr + i;
-					temp.len = 2;
-					if(slice_operation_priority_level(temp) >= level_value)
-					{
-						level_value = slice_operation_priority_level(temp);
-						root_operation = temp;
-						i += 2;
-						continue; 
-					}
-				}
-				else
-				{
-					temp.ptr = _slice.ptr + i;
-					temp.len = 1;
-					if(slice_operation_priority_level(temp) >= level_value)
-					{
-						level_value = slice_operation_priority_level(temp);
-						root_operation = temp;
-						i += 2;
-						continue; 
-					}
-
-				}
-			}
-			else if(_slice[i] == '>' || _slice[i] == '<')
-			{
-				if(i == _slice.len - 1)//如果等于号右方已经不存在代码段，说明这个运算符的参数不足
-					throw"Exception from function \"icy_find_minlevel_token\": operator lose argument";
-				temp.ptr = _slice.ptr + i;
-				if(_slice[i+1] == '=')
-				{
-					temp.len = 2;
-					if(i == _slice.len-2)
-						throw"Exception from function \"icy_find_minlevel_token\": operator lose argument";					
-				}
-				else
-					temp.len = 1;
-				if(slice_operation_priority_level(temp) >= level_value)
-				{
-					level_value = slice_operation_priority_level(temp);
-					root_operation = temp;					
-				}
-				i += temp.len;
-				continue;
-			}
-			//处理关键字或者引用
-			else if(_slice[i] == '_' || is_letter(_slice[i]))
-			{
-				//先获取这一片段
-				temp.ptr = _slice.ptr + i;
-				temp.len = 1;
-				i++;
-				for(;i < _slice.len && (is_letter(_slice[i]) || is_number(_slice[i]) || _slice[i] == '_'); i++)
-					temp.len++;
-				//检查是否是关键字
-				if(is_icy_keywd(temp))
-				{
-					if(slice_operation_priority_level(temp) >= level_value)
-					{
-						level_value = slice_operation_priority_level(temp);
-						root_operation = temp;					
-					}
-				}
-				else//不是关键字，但以这种形式出现，那只能是一个对象名，对象引用的运算优先级最高，因此会作为AST的叶子节点
-				{
-					if(0 >= level_value)
-					{
-						level_value = 0;
-						root_operation = temp;
-					}
-				}
-				continue;
-
-			}
-			//处理数字
-			else if(is_number(_slice[i]))	//数字引用的运算优先级是最高的,将会被置于叶子节点上
-			{
-				temp = fetch_number(StrSlice(_slice.ptr + i));
-				if(0 >= level_value)
-				{
-					level_value = 0;
-					root_operation = temp;
-				}
-				i += temp.len;
-				continue;
-			}
-			else if(_slice[i] == '\"')
-			{
-				
-				uint j{0};
-				for(;j+i<_slice.len;j++)
-				{
-					if(_slice[i+j] == '\\')
-						i++;
-					else if(_slice[i+j] == '\"')
-						break;
-				}
-				if(i+j == _slice.len)
-					throw"Exception from function \"icy_find_minlevel_token\": string lose double quotation mark\n";
-				temp.ptr = _slice.ptr + i;
-				temp.len = j+1;
-				if(0 >= level_value)
-				{
-					level_value = 0;
-					root_operation = temp;
-				}
-				i += temp.len;
-				continue;
-			}
-			else if(_slice[i] == '\'')
-			{
-				if(i+2 >= _slice.len || _slice[i+2] != '\'')
-					throw "Exception from function \"icy_find_minlevel_token\": too many letters between quotation marks or unfinished quotation mark\n";
-				temp.ptr = _slice.ptr + i;
-				temp.len = 3;
-				if(0 >= level_value)
-				{
-					level_value = 0;
-					root_operation = temp;
-				}
-				i += temp.len;
-				continue;
-
-			}
-			//处理[]
-			//怎样判断运算符左边已经有参数了呢？
-			/*
-			var value = arr[i]
-							=
-			left:                         right:
-			var value                     arr[i]
-			*/
-			else if(_slice[i] == '[')
-			{
-				char* end_bracket_pos = find_pair_sign(_slice.ptr + i,_slice.len);
-				if(is_range_contain<char>(_slice.ptr+i,end_bracket_pos,','))	//如果方括号内有逗号那就是列表
-				{
-					temp.ptr = _slice.ptr + i;
-					temp.len = end_bracket_pos - (_slice.ptr + i) + 1;
-					if(0 >= level_value)
-					{
-						level_value = 0;
-						root_operation = temp;
-					}
-				}				
-				else
-				{
-					temp.ptr = SQUARE_BRACKET;
-					temp.len = strlen(SQUARE_BRACKET);
-					if(slice_operation_priority_level(temp) >= level_value)
-					{
-						level_value = slice_operation_priority_level(temp);
-						root_operation = temp;
-					}
-				}
-				i += end_bracket_pos - (_slice.ptr + i) + 1;
-				continue;
-			}
-
-			i++;
+			_begin++;
+			_end--;
 		}
-		//啊，农历的新年到了。今年是龙年。希望我能在开学前完成这个程序的主体部分。
+		auto it = _begin;
+		while(it != _end)
+		{
+			if((*it)[0] == '(')//跳过括号
+			{
+				auto next_pos = find_right_pair(it,_end);
+				it = next_pos;
+			}
+			if((*it)[0] == '[')//很麻烦吧，方括号要单独拿出来处理。
+			{
+				ushort current_level{0};
+				//以下条件判断是否是在生成一个列表
+				if(it == _begin)
+					current_level = 0;
+				else if(is_ch_in_cstr((*(it-1))[0],"+*="))
+					current_level = 0;
+				else
+					current_level = 1;
+				if(current_level >= level_value)
+				{
+					if(current_level == 1)//这个是“数组访问”的分支
+						it->property = ACCESS_LIST;
+					else//这个是“列表创建”的分支
+						it->property = CREATE_LIST;
 
-		return root_operation;
+					root_token = *it;
+					level_value = it->property == ACCESS_LIST ? 1u:0u;
+				}
+				it = find_right_pair(it,_end);
+			}
+			else//大多数的在这里被处理了。上面两个if是需要特殊处理的情况
+			{
+				if(slice_operation_priority_level(*it) >= level_value)
+				{
+					root_token = *it;
+					level_value = slice_operation_priority_level(*it);					
+				}
+			}
+			it++;
+		}
+		return it;
+		
 	}
-
-
 
 
 	//之后想办法换一种映射方法
@@ -385,9 +304,14 @@ namespace Cirno{
 		else if(_slice_operator == "@")
 			node_type = NODETP_CALL;
 		else if(_slice_operator == "+")
-			node_type = NODETP_ADD;
+		{
+			if(_slice_operator.property == BINARY_OPERATOR)
+				node_type = NODETP_ADD;
+			else
+				node_type = NODETP_POS;
+		}
 		else if(_slice_operator == "-")
-			node_type = NODETP_SUB;
+			node_type = _slice_operator.property == BINARY_OPERATOR ? NODETP_SUB : NODETP_NEG;
 		else if(_slice_operator == "*")
 			node_type = NODETP_MUL;
 		else if(_slice_operator == "/")
@@ -412,8 +336,8 @@ namespace Cirno{
 			node_type = NODETP_NOT;
 		else if(_slice_operator == ".")
 			node_type = NODETP_ACCESS;
-		else if(_slice_operator == "[]")
-			node_type = NODETP_SHIF_ACCESS;
+		else if(_slice_operator == "[")
+			node_type = _slice_operator.property == ACCESS_LIST ? NODETP_ACCESS:NODETP_LIST;
 		else if(_slice_operator == "if")
 			node_type = NODETP_IF;
 		else if(_slice_operator == "loopif")

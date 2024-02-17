@@ -1,0 +1,7 @@
+const PI = 3.14
+mutual value = 0
+
+func test(var param)
+{
+    param = 1+2
+}

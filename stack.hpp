@@ -10,8 +10,5 @@ struct Stack
     byte *top;
     byte *base;
 
-    Stack();
+    Stack():base(data),top(data){}
 };
-Stack::Stack()
-    :top(data),base(data)
-{}

@@ -48,6 +48,7 @@ struct StrSlice
 	StrSlice();
 	StrSlice(const char* _cstr);
 	StrSlice(char* _str);
+	char next_ch(uint _shif = 1u);
 	char &operator[](uint _idx);
 	bool operator == (const char* _cstr);
 	bool operator == (StrSlice &_slice);
@@ -103,7 +104,10 @@ StrSlice::StrSlice(char* _str)//[]
 		for(; *_str; n++,_str++);
 		len = n;
 	}
-
+char StrSlice::next_ch(uint _shif)
+{
+	return *(ptr+len+_shif-1);
+}
 char &StrSlice::operator[](uint _idx)//[?]
 {
 	if(_idx >= len)
@@ -205,10 +209,10 @@ bool icy_naming_check(StrSlice &_slice)
 char* jump_space(char* _pos,uint _range = 0)
 {
 	if(_range)
-		for(uint i=0;i<_range && *_pos == ' ';i++)
+		for(uint i=0;i<_range && (*_pos == ' ' || *_pos == '\t');i++)
 			_pos++;
 	else
-		while(*_pos == ' ')
+		while(*_pos == ' ' || *_pos == '\t')
 			_pos++;
 	return _pos;
 }
@@ -217,10 +221,10 @@ char* jump_space(char* _pos,uint _range = 0)
 char *jump_space_et_linefd(char * _pos,uint _range = 0)
 {
 	if(_range)
-		for(uint i=0;i<_range && (*_pos == ' ' || *_pos == '\n');i++)
+		for(uint i=0;i<_range && (*_pos == ' ' || *_pos == '\n' || *_pos == '\t');i++)
 			_pos++;
 	else
-		while(*_pos == ' ' || *_pos == '\n')
+		while(*_pos == ' ' || *_pos == '\n' || *_pos == '\t')
 			_pos++;
 	return _pos;
 }
@@ -383,8 +387,8 @@ StrSlice fetch_icystr(char *_begin,uint _range)
 {
 	char end_sign = *_begin;//如果是双引号就用双引号结尾，如果是单引号就用单引号结尾
 	//unfinished
-
-
+	StrSlice slice;
+	return slice;
 }
 
 int strslice_to_integer(StrSlice _slice)

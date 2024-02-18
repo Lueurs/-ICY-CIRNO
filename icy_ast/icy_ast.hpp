@@ -94,6 +94,8 @@ namespace Cirno{
 
 	bool is_icy_keywd(StrSlice&);	//[]p检测代码中的字符片段是否是关键字
 
+	bool is_icy_operator(StrSlice _slice);//检测是否是运算符
+
 	ushort slice_operation_priority_level(StrSlice& _slice);	//p[]返回当前运算的运算优先级(数字越小优先级越高)
 
 	StrSlice icy_fetch_current_token(StrSlice &_slice);	//[?]读取（或者说标记）当前完整的一个操作符或操作数
@@ -124,6 +126,8 @@ namespace Cirno{
 	icyAstNode *make_ast_node_via_strslice(StrSlice _slice_operator);	//根据指令的字符来生成一个相应的icy抽象语法树节点
 
 	bool is_ast_const_expr(icyAstNode* _root);	//检查一个语法树是否是常量表达式
+
+
 
 
 }

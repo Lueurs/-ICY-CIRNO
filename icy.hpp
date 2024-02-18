@@ -61,6 +61,19 @@ func myfunc(var parameter)
                             |----list
                                    |----args
 */
+//运算优先级最低的运算符中最右侧的运算符置于根节点的位置。
+//var a = 12+5+3
+/*
+	[MOV]
+	  |----[VAR]
+	  |      |----a
+	  |
+	  |----[ADD]
+	         |----[ADD]
+			 |      |----12
+			 |      |----5
+			 |----5
+*/
 #pragma once
 
 #include<vector>
@@ -68,6 +81,7 @@ func myfunc(var parameter)
 #include<unordered_map>
 #include<sys/stat.h>
 #include<fstream>
+#include<iostream>
 #include"icy_ast/icy_ast.hpp"
 #include"stack.hpp"
 
@@ -102,10 +116,10 @@ namespace Cirno{
 	struct IcyObject
 	{		
 		icyobj_t  type;
-		byte*     source_ptr;
-		IcyObject(icyobj_t _type = OBJTP_NIL,byte *_source = nullptr);
+		::byte*     source_ptr;
+		IcyObject(icyobj_t _type = OBJTP_NIL,::byte *_source = nullptr);
 		~IcyObject();
-		void operator = (IcyObject &_icyobj);
+		void operator = (IcyObject _icyobj);
 	};
 
 	TokenList   lexical_analyse(char *_code,uint _code_len);	//进行词法分析。正负号和加减号在这个函数里会得到区分。

@@ -79,6 +79,7 @@ namespace Cirno{
 	const char* g_icykeywd_array[] = {
 		"var",
 		"mutual",
+		"const",
 		"and",
 		"or",
 		"func",
@@ -93,8 +94,26 @@ namespace Cirno{
 		"foreach",
 		"loopif",
 		"loopuntil",
-		"print",
-		"input"
+		"end"
+	};
+
+	const char* g_icy_operator_array[] = {
+		"=",
+		"+",
+		"-",
+		"*",
+		"/",
+		"^",
+		"+=",
+		"-=",
+		"*=",
+		"/=",
+		"^=",
+		".",
+		"@",
+		"&",
+		"[",
+		"]"
 	};
 	
 	enum icy_nodetype_t:ushort
@@ -151,7 +170,7 @@ namespace Cirno{
 		NODETP_FOR,
 		NODETP_FOREACH,
 
-
+	_NODETP_END_
 	};
 
     struct icyAstNode
@@ -182,64 +201,85 @@ namespace Cirno{
 		return false;
 	}
 
-	//或许会有更高效的映射方法？
-	//直接的对象引用或者数据，优先级是0
-	//数字越小运算优先级越高
-    ushort slice_operation_priority_level(StrSlice& _slice)
+	bool is_icy_operator(StrSlice _slice)
 	{
-		if(compair_strslice_with_cstr(_slice,"var") ||
-		   compair_strslice_with_cstr(_slice,"mutual") ||
-		   compair_strslice_with_cstr(_slice,"const")
-		)
-			return 0;
-		if(compair_strslice_with_cstr(_slice,"[]"))
-			return 1;
-		else if(compair_strslice_with_cstr(_slice,"@"))
-			return 2;
-		else if(compair_strslice_with_cstr(_slice,"!"))
-			return 3;
-		else if(compair_strslice_with_cstr(_slice,"^"))
-			return 4;
-		else if(compair_strslice_with_cstr(_slice,"*") || compair_strslice_with_cstr(_slice,"/"))
-			return 8;
-		else if(compair_strslice_with_cstr(_slice,"+") || compair_strslice_with_cstr(_slice,"-"))
-		{
-			if(_slice.property == BINARY_OPERATOR)
-				return 16;
-			else if(_slice.property == UNARY_OPERATOR)
-				return 3;
-			else
-				throw"[Lexical Analyse Exception]unrecognized symbol(+ or -).\n";
-		}
-		else if(compair_strslice_with_cstr(_slice,"="))
-			return 20;
-		else if(compair_strslice_with_cstr(_slice,"==") ||
-				compair_strslice_with_cstr(_slice,"<=") ||
-				compair_strslice_with_cstr(_slice,">=") ||
-				compair_strslice_with_cstr(_slice,"<")  ||
-				compair_strslice_with_cstr(_slice,">")  ||
-				compair_strslice_with_cstr(_slice,"!="))
-			return 24;
-
-		else if(compair_strslice_with_cstr(_slice,"and") || compair_strslice_with_cstr(_slice,"or"))
-			return 32;
-		else if(compair_strslice_with_cstr(_slice,"+=") || 
-				compair_strslice_with_cstr(_slice,"-=") ||
-				compair_strslice_with_cstr(_slice,"*=") ||
-				compair_strslice_with_cstr(_slice,"/="))
-			return 48;
-		else if(compair_strslice_with_cstr(_slice,"ret"))
-			return 64;
-		else
-			return 0;
+		for(auto s : g_icy_operator_array)
+			if(compair_strslice_with_cstr(_slice,s))
+				return true;
+		return false;
 	}
 
 
+	//var a = -b[0]+1
+	//<LOW>
+	//MOV,
+	//VAR,ADD,
+	//SHIF
+	//a,b,1
+	//<HIGH>
+	//赋值->对象声明->对象引用，创建列表
 
+	//这一次数字越小，优先级越低,被计算的越晚
+	ushort slice_operation_priority_level(StrSlice _slice)
+	{
+		if(_slice == "ret")
+			return 0;
+		else if(_slice == "=" ||
+		   _slice == "+="||_slice == "-="||
+		   _slice == "*="|| _slice == "/="||
+		   _slice == "^=")//各种赋值符号
+			return 10;
+
+		else if(_slice == "and" ||_slice == "or")//与或
+			return 20;
+		
+		else if(_slice == ">" || _slice == "<" ||
+			    _slice == ">="|| _slice == "<="||
+				_slice == "=="|| _slice == "!=")//比较运算符
+			return 25;
+		else if(_slice == "+" || _slice == "-")//加减法
+		{
+			if(_slice.property == BINARY_OPERATOR)//加减法
+				return 30;
+			else								  //正负号
+				return 60;
+		}
+
+		else if(_slice == "*" || _slice == "/")//乘法除法
+			return 40;
+
+		else if(_slice == "^")//幂
+			return 50;
+	
+		else if(_slice == "!")//否
+			return 60;
+		
+		else if(_slice == "@")
+			return 75;
+								//entiy.member@[param]
+		else if(_slice == ".")
+			return 70;				
+
+		else if(_slice == "[" && _slice.property == ACCESS_LIST)//访问数组元素
+			return 80;
+		
+		else if(_slice == "var" || _slice == "const" || _slice == "mutual")
+			return 90;
+
+		else if(is_strslice_number(_slice) ||
+				icy_naming_check(_slice) ||
+				(_slice == "[" && _slice.property == CREATE_LIST) ||
+				_slice[0] == '\"' && _slice[_slice.len-1] == '\"')
+			return 100;
+		else 
+			throw"Unknown type.\n";
+	}
+
+//优先级最低的在根节点
 	TokenList::iterator icy_find_minlevel_token2(TokenList::iterator _begin,TokenList::iterator _end)
 	{
-		ushort 		level_value{0};
-		StrSlice 	root_token;
+		ushort 		level_value{150};
+		TokenList::iterator 	root_token;
 		while((*_begin)[0] == '(' && (_end ==find_right_pair(_begin,_end)++))//去除多余括号
 		{
 			_begin++;
@@ -253,39 +293,39 @@ namespace Cirno{
 				auto next_pos = find_right_pair(it,_end);
 				it = next_pos;
 			}
-			if((*it)[0] == '[')//很麻烦吧，方括号要单独拿出来处理。
+			if(*it == "[")//很麻烦吧，方括号要单独拿出来处理。
 			{
 				ushort current_level{0};
 				//以下条件判断是否是在生成一个列表
 				if(it == _begin)
-					current_level = 0;
+					current_level = 100u;
 				else if(is_ch_in_cstr((*(it-1))[0],"+*="))
-					current_level = 0;
+					current_level = 100u;
 				else
-					current_level = 1;
-				if(current_level >= level_value)
+					current_level = 80u;
+				if(current_level <= level_value)
 				{
-					if(current_level == 1)//这个是“数组访问”的分支
+					if(current_level == 80u)//这个是“数组访问”的分支
 						it->property = ACCESS_LIST;
 					else//这个是“列表创建”的分支
 						it->property = CREATE_LIST;
 
-					root_token = *it;
-					level_value = it->property == ACCESS_LIST ? 1u:0u;
+					root_token = it;
+					level_value = it->property == ACCESS_LIST ? 80u:100u;
 				}
 				it = find_right_pair(it,_end);
 			}
 			else//大多数的在这里被处理了。上面两个if是需要特殊处理的情况
 			{
-				if(slice_operation_priority_level(*it) >= level_value)
+				if(slice_operation_priority_level(*it) <= level_value)
 				{
-					root_token = *it;
+					root_token = it;
 					level_value = slice_operation_priority_level(*it);					
 				}
 			}
 			it++;
 		}
-		return it;
+		return root_token;
 		
 	}
 
@@ -352,6 +392,8 @@ namespace Cirno{
 			node_type = NODETP_CREATE_LOCAL_OBJ;
 		else if(_slice_operator == "mutual")
 			node_type = NODETP_CREATE_MUTUAL_OBJ;
+		else if(_slice_operator == "const")
+			node_type = NODETP_CREATE_CONST_OBJ;
 		else if(icy_naming_check(_slice_operator))
 		{
 			if(!is_icy_keywd(_slice_operator))//如果不是关键字，那么就是一个对象名

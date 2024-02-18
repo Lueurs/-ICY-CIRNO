@@ -30,6 +30,7 @@ struct StrSlice
 	StrSlice();
 	StrSlice(const char* _cstr);
 	StrSlice(char* _str);	//[?]
+	char next_ch(uint _shif = 1u);
 	char &operator[](uint _idx);//[?]
 	bool operator == (const char* _cstr);//[?]
 	bool operator == (StrSlice& _slice);//[?]
@@ -78,7 +79,7 @@ bool is_letter(char _c);//p[]检测一个字符是否是英文字母
 
 bool icy_naming_check(StrSlice &_slice);    //p[]检测一个切片是否符合命名规范
 
-char* jump_space(char* _pos,uint _range = 0);	//p[?]从当前字符起向后，跳过第一段空格，返回这一段空格后的第一个字符的指针
+char* jump_space(char* _pos,uint _range = 0);	//p[?]从当前字符起向后，跳过第一段空格以及制表符，返回这一段空格以及制表符后的第一个字符的指针
 
 char *jump_space_et_linefd(char *_pos,uint _range = 0);	//[?]从当前字符起向后，跳过第一段空格和回车，返回这一段空格或回车后的第一个字符的指针
 

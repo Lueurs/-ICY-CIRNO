@@ -19,8 +19,6 @@ using LocalObjectIndexTable  = std::unordered_map<std::string,uint>;
 
 
 
-//🥰🥰
-
 namespace Cirno{
 	enum icyobj_t
 	{
@@ -205,7 +203,7 @@ namespace Cirno{
 		byte*     source_ptr;
         IcyObject(icyobj_t _type = OBJTP_NIL,byte *_source = nullptr);
         ~IcyObject();
-        void operator = (IcyObject &_icyobj);
+        void operator = (IcyObject _icyobj);
 	};
     IcyObject::IcyObject(icyobj_t _type,byte *_source)//注意！IcyObject在被创建后不是随机值，而是默认的空值
         :type(_type),source_ptr(_source){}
@@ -221,11 +219,11 @@ namespace Cirno{
                     delete (IcyFloat*)(source_ptr);
                     break;
                 default:
-                    throw"（未完成的数据类型）前面的区域，以后再来探索吧！\n";
+                    delete source_ptr;
             }
 
     }
-    void IcyObject::operator=(IcyObject &_icyobj)
+    void IcyObject::operator=(IcyObject _icyobj)
     {
         //清除原有的数据
         if(source_ptr)
@@ -284,7 +282,7 @@ namespace Cirno{
         
     }
 
-
+//明天继续处理这个函数：我忘记在字符串中空格和tab等字符也是被允许的
     TokenList lexical_analyse(char *_code,uint _code_len)
     {
         TokenList result;
@@ -294,15 +292,22 @@ namespace Cirno{
         while(current_token.ptr != code_end)
         {
             current_token.len = 1;
-            if(is_ch_in_cstr(current_token[0],"*/^=<>!"))
+            if(current_token[0] == '\"')
+            {
+                //这里看起来很危险。如果没有循环条件的第一个条件发现非法的内存地址，循环的第二个条件就会尝试去访问它
+                while(current_token.ptr + current_token.len != code_end && current_token.next_ch() != '\"')//搜查到字符串常量的末尾
+                    current_token.len++;
+                if(current_token.ptr + current_token.len == code_end)
+                    throw"[Lexical Error]unfinished string segment.";
+                current_token.len += 1;
+            }
+            else if(is_ch_in_cstr(current_token[0],"+-*/^=<>!"))
             {
                 if(code_end - current_token.ptr >= 2)
-                    if(current_token[1] == '=')
+                    if(current_token.next_ch() == '=')
                     {
                         current_token.len = 2;
                         result.emplace_back(current_token);
-                        current_token.ptr += 2;
-                        continue;
                     }
                 else if(is_ch_in_cstr(current_token[0],"+-"))//判断一下是正负号还是加减号
                 {
@@ -313,11 +318,25 @@ namespace Cirno{
                         current_token.property = BINARY_OPERATOR;
                 }
             }
-            else if(is_ch_in_cstr(current_token[0],"[](){}.:\n\'\",;"))
+            else if(is_ch_in_cstr(current_token[0],"[](){}.:\n,;@"))//保留这个分支是为了体现逻辑
             {
-                result.emplace_back(current_token);
-                current_token.ptr++;
-                continue;
+            //其实这里我们什么都不用做就可以了
+            //  /\__/\
+            // ( o  o )
+            // \ =^=  |
+            //  |      \_
+            //  |        \_
+            //  | | | |    \   
+            //  | | | |    /~)~)~)~)~)~)~)~)
+            //   ^ ^ ^ ^ ^ 
+            //    result.emplace_back(current_token);
+            //    current_token.ptr++;
+            //    current_token.ptr = jump_space(current_token.ptr);
+            //    continue;
+            }
+            else if(current_token[0] == '\'')
+            {
+                //未完工
             }
             else if(current_token[0] == '#')
             {
@@ -332,7 +351,7 @@ namespace Cirno{
             }
             else if(current_token[0]  == '_' || is_letter(current_token[0]))
             {
-                while(current_token.ptr + current_token.len != code_end && (current_token[current_token.len - 1],"+-*/^%!<>=()[]{},.;&"))
+                while(current_token.ptr + current_token.len != code_end && !is_ch_in_cstr(current_token.next_ch(),"\"\t\n+-*/^%!<>=() []{},.;&@:"))
                     current_token.len++;
             }
             else if(is_number(current_token[0])) //数字的解析。这里我改了很久，估计还是有严重的问题
@@ -340,17 +359,17 @@ namespace Cirno{
                 bool dot{false};//是否有小数点
                 while(current_token.ptr + current_token.len != code_end)
                 {
-                    if(current_token[current_token.len] == '.')
+                    if(current_token.next_ch() == '.')
                     {
                         if(dot)     //如果已经有小数点了，那就直接跳出循环，不再向下读取
                             break;
                         else if(current_token.ptr + current_token.len + 1 == code_end ||
-                               !is_number(current_token[current_token.len+1]))//如果这个小数点是代码中的最后一个字符,或者小数点后面不是数字,也跳出循环，不再读取
+                               !is_number(current_token.next_ch(2)))//如果这个小数点是代码中的最后一个字符,或者小数点后面不是数字,也跳出循环，不再读取
                             break;
                         else//否则(这段数字中之前没有出现过小数点，而且小数点不在代码的尾部出现，小数点的后面一个字符也是数字)
                             dot = true;
                     }
-                    else if(!is_number(current_token[current_token.len]))
+                    else if(!is_number(current_token.next_ch()))
                         break;
                     current_token.len++;            
                 }   
@@ -391,7 +410,6 @@ namespace Cirno{
         bool        load_script(std::string _file_name);
         void        compile();
 	protected:
-		//icyAstNode  *generate_ast(StrSlice _statement,IcyFunction *_pfunction_context);//第四个参数主要是提供上下文信息。
         icyAstNode  *generate_ast2(TokenList::iterator _begin,TokenList::iterator _end,IcyFunction *_pfunction_context);//上面那个函数的升级版
 
 		void    	execute_ast(icyAstNode* _root,IcyThread &_thread_context,IcyFunction &_func_context);        
@@ -431,21 +449,32 @@ namespace Cirno{
         current_node = make_ast_node_via_strslice(*current_token);                                        //根据字符生成相应的抽象语法树节点
 
         uint current_index{0};
+        
+        auto obj_name = current_token+1;
 
         if(current_node->node_type == NODETP_CREATE_CONST_OBJ)  //如果是定义常量的节点
         {
-            auto obj_name = current_token+1;
             if(obj_name == _end)
                 throw"[Syntax Analyse]Exception from Cirno::IcyProcess::generate_ast2: command missing argument.\n";//没有被定义的常量名
             if(!icy_naming_check(*obj_name))
                 throw"[Lexical Analyse]Exception from Cirno::IcyProcess::generate_ast2: illegal object name.\n";//命名不合法错误
             //检测该名称是否已经被使用
+            /*
             bool defined{
                 m_constobj_index_table.find(strslice_to_string(*obj_name)) != m_constobj_index_table.end() ||
                 m_mutualobj_index_table.find(strslice_to_string(*obj_name)) != m_mutualobj_index_table.end() ||
                 m_current_localobj_index_table.find(strslice_to_string(*obj_name)) != m_current_localobj_index_table.end() 
-            };
-            if(defined)
+            };            
+            */
+
+
+            bool mc_found = (m_constobj_index_table.find(strslice_to_string(*obj_name)) != m_constobj_index_table.end());
+            bool mm_found = (m_mutualobj_index_table.find(strslice_to_string(*obj_name)) != m_mutualobj_index_table.end());
+            bool ml_found = (m_current_localobj_index_table.find(strslice_to_string(*obj_name)) != m_current_localobj_index_table.end());
+
+            bool found = mc_found||mm_found||ml_found;
+
+            if(found)
                 throw"[Syntax Analyse]Exception from Cirno::IcyProcess::generate_ast2: multiple definition of an object.\n";//重复定义错误
             
             current_index = m_constobj_table.size();
@@ -850,8 +879,14 @@ namespace Cirno{
                 auto sk = it;
                 int unfinished_segment{0};
                 //       没有扫描到末尾        且      不是换行也不是分号者分号         或者有未完成的段落        
-                while(it != token_list.end() && ((*it != "\n" && *it != ";") || unfinished_segment != 0))
+                while(sk != token_list.end() && ((*sk != "\n" && *sk != ";") || unfinished_segment != 0))
+                {
+                    if(is_ch_in_cstr((*it)[0],"[{("))
+                        unfinished_segment++;
+                    else if(is_ch_in_cstr((*it)[0],")]}"))
+                        unfinished_segment--;
                     sk++;
+                }
                 icyAstNode *pAstRoot = generate_ast2(it,sk,nullptr);
                 //is_ast_const_expr;
                 if(pAstRoot->node_type != NODETP_MOV)

@@ -16,6 +16,7 @@ TokenList cut_tokenlist(TokenList::iterator _begin,TokenList::iterator _end);//�
 
 std::string strslice_to_string(StrSlice _slice);	//将StrSlice转化为string
 
+
 namespace Cirno{
 
 	enum icy_nodetype_t:ushort
@@ -91,6 +92,7 @@ namespace Cirno{
 		StrSlice 		slice;
 		icy_nodetype_t	nodetype;
 	};
+
 
 	bool is_icy_keywd(StrSlice&);	//[]p检测代码中的字符片段是否是关键字
 

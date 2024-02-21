@@ -337,7 +337,7 @@ namespace Cirno{
 		
 		icy_nodetype_t node_type;
 
-		if(is_strslice_number(_slice_operator))
+		if(is_strslice_number(_slice_operator))//需要增加对字符串型常量的支持
 			node_type = NODETP_CONST_OBJECT;
 		else if(_slice_operator == "=")
 			node_type = NODETP_MOV;
@@ -407,7 +407,7 @@ namespace Cirno{
 			throw"Exception from function\"make_ast_node_via_strslice\": unknown type.";
 
 		if(node_type > _NODETPSEC_CONTROL_SECTION_)//如果是控制指令就多准备一些空间。
-			p_ret_astnode = new icyAstNode(8U);
+			p_ret_astnode = new icyAstNode(3U);
 		else if(node_type == _NODETPSEC_OBJECT_SEC_)
 			p_ret_astnode = new icyAstNode(0u);
 		else if(node_type == NODETP_NOT)

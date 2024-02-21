@@ -1,25 +1,6 @@
-const PI = 3.14
-mutual corre
-func myfunc(var param = 7,var condition = false)
+const myList = [1,2,3,4,5]
+func test()
 {
-    var list = [1,2,3,4,5,6]
-    print@["myfunction"]
-    ret param*(13 and condition)
+    var value = 9
+    print@[value]
 }
-func test(var parameter)
-{
-    if condition_a != parameter:
-        print@["segment_layer:1"]
-        do_something@[args]
-        if condition_aa:
-            do_something@[args]
-            print@["segment_layer:2"]
-        else:
-            do_something_else@[args]
-        end
-    else:
-        do_something@[args]
-    end
-}
-mutual val = 10.5
-const str_test = "End String"

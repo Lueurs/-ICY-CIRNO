@@ -2,7 +2,7 @@
 
 using byte = char;
 
-const unsigned int STACK_MAXSIZE = 256;
+const unsigned int STACK_MAXSIZE = 512;
 
 struct Stack
 {

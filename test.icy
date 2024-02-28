@@ -1,4 +1,4 @@
-const myList = [1,2,3,4,5]
+const myList = 12
 func test()
 {
     var value = 9

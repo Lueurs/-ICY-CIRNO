@@ -83,7 +83,8 @@ func myfunc(var parameter)
 #include<iostream>
 #include"icy_ast/icy_ast.hpp"
 #include"stack.hpp"
-
+#include<functional>
+#include<memory>
 
 using ushort = unsigned short;
 using uint   = unsigned int;
@@ -95,6 +96,7 @@ using LocalObjectIndexTable  = std::map<std::string,unsigned int>;
 
 using _TempPair = MyPair<StrSlice,uint>;
 using TemporaryDataStruct = std::vector<_TempPair>;
+
 
 
 
@@ -114,8 +116,10 @@ namespace Cirno{
 	
 	};
 
-	const short REQUIRED_RVALUE = 0;
-	const short REQUIRETP_LVALUE = 1;
+
+
+	const short REQUIRE_RVALUE = 0;
+	const short REQUIRE_LVALUE = 1;
 
 	using IcyInt   = int;
 	using IcyFloat = double;
@@ -129,9 +133,12 @@ namespace Cirno{
 		void operator = (IcyObject _icyobj);
 	};
 
+	void deleter(byte *__resource);//IcyObject的删除器
+
+
 	TokenList   lexical_analyse(char *_code,uint _code_len);	//进行词法分析。正负号和加减号在这个函数里会得到区分。
 
-	IcyObject read_icy_constant_val(StrSlice _statement);	//	读取一段字符，转化为相应的icy常量对象
+	byte* read_icy_constant_val(StrSlice _statement);	//	读取一段字符，转化为相应的icy常量对象
 
 	using icyFuncParamStruct = std::vector<IcyObject>; //icyFunction 对象中保存函数参数的数据结构，我们暂且用std::vector吧
 
@@ -158,7 +165,7 @@ namespace Cirno{
 		icyAstNode  *generate_ast(StrSlice _statement,icyAstNode *_root); ///生成ast
         icyAstNode  *generate_ast2(TokenList _statement,IcyFunction *_pfunction_context);//上面那个函数的升级版
 
-		void    	execute_ast(icyAstNode* _root,IcyThread &_thread_context,IcyFunction &_func_context,short _required = REQUIRED_RVALUE);	//执行ast
+		void    	execute_ast(icyAstNode* _root,IcyThread &_thread_context,IcyFunction &_func_context,short _required = REQUIRE_RVALUE);	//执行ast
         IcyObject   *solve_const_expr(StrSlice _statement);	//此函数用于解决编译期常表达式(直接把表达式的值算出来)
 		IcyObject  solve_const_ast(icyAstNode *_root);
         IcyFunction *make_function(StrSlice _statement);
@@ -172,16 +179,17 @@ namespace Cirno{
 		struct stat m_file_info;//文件信息
 
         //所有的函数也是对象，当完成一个make_function之后make_function的信息也会被存入下面两个表中
-		TemporaryDataStruct    			 	 m_mutualobj_index_table;	//共享对象的索引表
-		std::vector<IcyObject>  		         m_mutualobj_table;			//共享对象的地址表
+		TemporaryDataStruct    			 	               m_mutualobj_index_table;	//共享对象的索引表
+		std::vector<std::shared_ptr<byte>>  	   		   m_mutualobj_table;			//共享对象的地址表
 
         
-        TemporaryDataStruct        	  		m_constobj_index_table; //常量索引表
-        std::vector<IcyObject>                  m_constobj_table;       //常量地址表
+        TemporaryDataStruct        	  					m_constobj_index_table; //常量索引表
+        std::vector<std::shared_ptr<byte>>              m_constobj_table;       //常量地址表
 
         TemporaryDataStruct				    m_current_localobj_index_table;  //当前使用的对象索引查询表,在生成AST时使用
 
         //每次根据对象声明的次序分配索引存入表中，在之后生成AST的过程中如果扫描到相同的对象名，就可以
+		std::vector<std::function<void(Stack&,IcyProcess*,IcyFunction*)>> m_api_table;//内部的api接口表
 	};
 
 

@@ -32,7 +32,8 @@ namespace Cirno{
 		NODETP_LOCAL_OBJECT,
 		NODETP_MUTUAL_OBJECT,
 		NODETP_CONST_OBJECT,
-
+//以下是运算符
+	_NODETPSEC_OPERATOR_BEGIN_,
 //以下是双目运算符
 	_NODETPSEC_BIN_BEGIN_,
 		NODETP_MOV,
@@ -54,28 +55,35 @@ namespace Cirno{
 		NODETP_AND,
 		NODETP_OR,
 		NODETP_ACCESS,	//	访问对象成员
+		
+		NODETP_SHIF_ACCESS,	//访问列表元素(其实这个也是双目运算符)
+
 	_NODETPSEC_BIN_END_,
 //以上是双目运算符
-
+//以下是单目运算符
+	_NODETPSEC_UNARY_BEGIN_,
 		NODETP_NOT,
 		NODETP_NEG,
 		NODETP_POS,
+	_NODETPSEC_UNARY_END_,
+//以上是单目运算符
 
-		NODETP_SHIF_ACCESS,	//访问列表元素(其实这个也是双目运算符)
+	_NODETPSEC_OPERATOR_END_,
+//以上是运算符
 		NODETP_LIST,
-
 		NODETP_SCOPE,
 
 	_NODETPSEC_CONTROL_SECTION_,
-
-
+		
 		NODETP_IF,
 		NODETP_LOOPIF,
 		NODETP_LOOPUNTIL,
 		NODETP_FOR,
 		NODETP_FOREACH,
 
+	_NODETP_END_
 	};
+
 
 	struct icyAstNode
 	{

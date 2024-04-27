@@ -276,7 +276,7 @@ namespace Cirno{
             //    current_token.ptr = jump_space(current_token.ptr);
             //    continue;
             }
-            else if(current_token[0] == '\'')
+            else if(current_token[0] == '\'')//这里是用来处理正则表达式的
             {
                 //未完工
             }
@@ -440,6 +440,22 @@ namespace Cirno{
         
     }
 
+    void instill_data(Stack &_stack,icyobj_t _rv_type,byte *_p_r_value,std::shared_ptr<byte>& _target)
+    {
+        _target.reset();//清除原有数据s
+        switch(_rv_type)
+        {
+            case OBJTP_INTEGER:
+                _target = std::shared_ptr<byte>((byte*)(new IcyIntObject(*(IcyInt*)_p_r_value)));//构造一个新的对象
+                break;
+            case OBJTP_REALNUM:
+                _target = std::shared_ptr<byte>((byte*)(new IcyFloatObject(*(IcyFloat*)_p_r_value)));
+                break;
+            //and so on and so on....
+
+        }
+
+    }
 
 /////////////////////////////////////
 //以下是真正执行抽象语法树节点相应的任务的函数
@@ -448,8 +464,40 @@ namespace Cirno{
 
     void icy_mov(Stack &_stack,IcyProcess *_pproc_context,IcyFunction *_pfunc_context)
     {
-        IcyInt intVal;
-        IcyFloat floatVal;
+        static IcyInt intVal;
+        static IcyFloat floatVal;
+
+        //这是进行赋值操作的lambda算式，访问外函数的intVal,floatVal等对象来获得源数据
+        auto lmd_set_value = [=](icyobj_t __rtype,std::shared_ptr<byte>& __target)->void
+        {
+            icyobj_t l_type = ((IcyObjectBase*)__target.get())->m_type;
+            if(__rtype == l_type)
+            {
+                switch(l_type)
+                {
+                    case OBJTP_INTEGER:
+                        ((IcyIntObject*)__target.get())->m_data = intVal;
+                        break;
+                    case OBJTP_REALNUM:
+                        ((IcyFloatObject*)__target.get())->m_data = floatVal;
+                        break;
+                    //[Other types]
+                }
+            }
+            else
+            {
+                __target.reset();//数据类型不同？直接先释放掉原来的内存，重新构造对象
+                switch(__rtype)
+                {
+                    case OBJTP_INTEGER:
+                        __target = std::shared_ptr<byte>((byte*)new IcyIntObject(intVal));
+                        break;
+                    case OBJTP_REALNUM:
+                        __target = std::shared_ptr<byte>((byte*)new IcyFloatObject(floatVal));
+                    //[Other types]
+                }
+            }
+        };
 
         icyobj_t r_type = pop_objt(_stack);//获得右值的类型
         switch(r_type)
@@ -464,31 +512,20 @@ namespace Cirno{
         icy_nodetype_t l_prop = pop_nodetp(_stack);//获取左值的性质:是共享值还是局部值
         uint source = pop_uint(_stack);//获取左值的索引
 
-        std::shared_ptr<byte> l_value_index;
-
-        switch(l_prop)
+        if(l_prop == NODETP_LOCAL_OBJECT)
         {
-            case NODETP_LOCAL_OBJECT:
-                l_value_index = _pfunc_context->m_localobj_table[source];
-                break;
-            case NODETP_MUTUAL_OBJECT://下面一段让人心惊胆战
-                std::lock_guard<std::mutex> lock(mtx_mutualobj);//上锁
-                std::shared_ptr<byte> &rf_obj = _pproc_context->m_mutualobj_table[source];//获取左操作数的对象的左值引用
-                rf_obj.reset();//销毁原来的数据
-                switch(r_type)
-                {
-                    case OBJTP_INTEGER:
-                        rf_obj = std::shared_ptr<byte>((byte*)(new IcyIntObject(intVal)),deleter);//重新构造出对象...
-                        reinterpret_cast<IcyIntObject*>(rf_obj.get())->m_data = intVal;//传入新的值
-                        break;
-                    case OBJTP_REALNUM:
-                        rf_obj = std::shared_ptr<byte>((byte*)(new IcyFloatObject(floatVal)),deleter);//重新构造出对象...
-                        reinterpret_cast<IcyFloatObject*>(rf_obj.get())->m_data = floatVal;//传入新的值
-                        break;
-                }
-                
+        //从函数上下文的对象表中取出索引
+            lmd_set_value(r_type,_pfunc_context->m_localobj_table[source]);
         }
-
+        else if(l_prop == NODETP_UNSETTLED_CONST_OBJECT)//我们怎样才能在对unsettled const object初始化之后将其属性改为const object呢？
+        {
+            lmd_set_value(r_type,_pproc_context->m_constobj_table[source]);
+        }
+        else if(l_prop == NODETP_MUTUAL_OBJECT)
+        {
+            std::lock_guard<std::mutex> lock(mtx_mutualobj);//在多线程的情况下，先上锁
+            lmd_set_value(r_type,_pproc_context->m_mutualobj_table[source]);
+        }
     }
 
     void trans_to_integer(Stack &_stack,IcyProcess *_pproc_context,IcyFunction *_pfunc_context)//类型转换操作
@@ -714,7 +751,7 @@ namespace Cirno{
     }
 
 
-    void refer_value(Stack &_stack,std::vector<std::shared_ptr<byte>> _resource_table,icyAstNode* _node,short _require = REQUIRE_RVALUE)
+    void refer_value(Stack &_stack,std::vector<std::shared_ptr<byte>>  &_resource_table,icyAstNode* _node,short _require = REQUIRE_RVALUE)
     {
         if(_require == REQUIRE_LVALUE)//如果请求的是左值
         {
@@ -724,16 +761,16 @@ namespace Cirno{
         }
         else if(_require == REQUIRE_RVALUE)
         {
-            register icyobj_t type = *(icyobj_t*)_resource_table[_node->source].get();
+            icyobj_t type = *(icyobj_t*)_resource_table[_node->source].get();
             switch(type)
             {
                 case OBJTP_INTEGER:
                     push_icyint(_stack,reinterpret_cast<IcyIntObject*>(_resource_table[_node->source].get())->m_data);
-                    push_objtp(_stack,OBJTP_INTEGER);
+//                    push_objtp(_stack,OBJTP_INTEGER);
                     break;
                 case OBJTP_REALNUM:
                     push_icyfloat(_stack,reinterpret_cast<IcyFloatObject*>(_resource_table[_node->source].get())->m_data);
-                    push_objtp(_stack,OBJTP_REALNUM);
+//                    push_objtp(_stack,OBJTP_REALNUM);
                     break;
                 //前面的区域，以后再来探索吧
             }
@@ -753,6 +790,8 @@ namespace Cirno{
         if(!cirno_initialized)
         {
             OperatorTable.resize(_NODETP_END_);
+
+            OperatorTable[NODETP_MOV] = icy_mov;
 
             OperatorTable[NODETP_ADD] = icy_operator_add;
             OperatorTable[NODETP_SUB] = icy_operator_sub;
@@ -801,7 +840,9 @@ namespace Cirno{
             m_constobj_index_table.emplace_back(_TempPair(*obj_name,current_index));
             m_constobj_table.emplace_back((byte*)new IcyObjectBase());
 
-            current_node->node_type = NODETP_CONST_OBJECT;  //直接将创建对象的节点转化为对节点本身的引用的节点
+            current_node->node_type = NODETP_UNSETTLED_CONST_OBJECT;  //直接将创建对象的节点转化为对节点本身的引用的节点
+            //这里用的是unsettled，因为常量不允许被赋值，但是常量又需要初始化
+            //解决方案就是先设定成“未初始化”的常量，这种常量允许被赋值，一旦被第一次赋值之后就会转化成NODETP_CONST_OBJECT,不能在接受赋值。
             current_node->source = current_index;           
         }
         else if(current_node->node_type == NODETP_CREATE_MUTUAL_OBJ)  //如果是定义常量的节点
@@ -898,7 +939,7 @@ namespace Cirno{
             {
                 current_index = m_constobj_table.size();
                 m_constobj_index_table.emplace_back(_TempPair(*current_token,current_index));
-                m_constobj_table.emplace_back(read_icy_constant_val(*current_token));
+                m_constobj_table.emplace_back(read_icy_constant_val(*current_token));//Here we get the value of a constant
                 current_node->source = current_index;
             }
             else
@@ -1034,6 +1075,14 @@ namespace Cirno{
         {
             refer_value(_thread_context.local_swap_stack,_func_context.m_localobj_table,_root,_required);//一个函数搞定读取局部变量并将其入栈的操作
         }
+        else if(_root->node_type == NODETP_UNSETTLED_CONST_OBJECT)
+        {
+            if(_required == REQUIRE_RVALUE)
+                throw"Exception from function IcyProcess::execute_ast: unnable to read data from an unsettled object.\n";
+            else
+                refer_value(_thread_context.local_swap_stack,m_constobj_table,_root,REQUIRE_LVALUE);
+
+        }
         else if(_root->node_type == NODETP_CONST_OBJECT)
         {
             if(_required == REQUIRE_LVALUE)
@@ -1052,10 +1101,13 @@ namespace Cirno{
         }
         else if(_root->node_type > _NODETPSEC_BIN_BEGIN_ && _root->node_type < _NODETPSEC_BIN_END_)//如果是双目运算符
         {
-            execute_ast(_root->sub_nodes[0],_thread_context,_func_context,REQUIRE_RVALUE);//向两个子节点请求右值
+            if(_root->node_type == NODETP_MOV)
+                execute_ast(_root->sub_nodes[0],_thread_context,_func_context,REQUIRE_LVALUE);//如果是拷贝数据的赋值指令，则应该对左子节点申请左值
+            else
+                execute_ast(_root->sub_nodes[0],_thread_context,_func_context,REQUIRE_RVALUE);//其他情况下申请右值
             execute_ast(_root->sub_nodes[1],_thread_context,_func_context,REQUIRE_RVALUE);
             auto fn = OperatorTable[_root->node_type];//在表中找到相应的处理函数
-            fn(_thread_context.local_swap_stack,nullptr,nullptr);//处理数据
+            fn(_thread_context.local_swap_stack,this,&_func_context);//处理数据
         }
         else if(_root->node_type > _NODETPSEC_UNARY_BEGIN_ && _root->node_type < _NODETPSEC_UNARY_END_)//如果是单目运算符
         {

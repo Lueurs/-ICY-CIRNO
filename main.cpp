@@ -1,18 +1,15 @@
 #include"icy.hpp"
 
-using namespace std;
-
 int main()
 {
- 
-     Cirno::IcyProcess cirno;
+    Cirno::IcyProcess cirno;
     try{
     cirno.load_script("./test.icy");
     cirno.compile();
     }
     catch(const char *_msg)
     {
-        cout << _msg;
+        std::cout << _msg;
     }
  
  
